@@ -19,6 +19,7 @@
 - Desired end-state represented by `DesiredState`
 - Runtime apply modeled as `RUNTIME_APPLY_DECLARATIVE_STATE`
 - Runtime provider can execute concrete shell command when requested
+- Runtime provider supports local and SSH remote command execution adapters
 
 ## 5. Persistence and Replay
 - `goal_execution`: goal outcome and failure JSON snapshot

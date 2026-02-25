@@ -50,6 +50,18 @@ public class DefaultGoalPlanner implements GoalPlanner {
             if (goalSpec.constraints().containsKey("runtimeCommand")) {
                 runtimeParams.put("command", goalSpec.constraints().get("runtimeCommand"));
             }
+            if (goalSpec.constraints().containsKey("remoteHost")) {
+                runtimeParams.put("remoteHost", goalSpec.constraints().get("remoteHost"));
+            }
+            if (goalSpec.constraints().containsKey("remotePort")) {
+                runtimeParams.put("remotePort", goalSpec.constraints().get("remotePort"));
+            }
+            if (goalSpec.constraints().containsKey("remoteUser")) {
+                runtimeParams.put("remoteUser", goalSpec.constraints().get("remoteUser"));
+            }
+            if (goalSpec.constraints().containsKey("remotePassword")) {
+                runtimeParams.put("remotePassword", goalSpec.constraints().get("remotePassword"));
+            }
         }
 
         ops.add(new AtomicOp("op-apply", "RUNTIME_APPLY_DECLARATIVE_STATE", "Apply desired state to runtime substrate", runtimeParams, true, true, defaultTimeout));

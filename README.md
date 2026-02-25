@@ -50,6 +50,27 @@ AI-Native unified operating model with:
 - Windows: `powershell -Command <runtimeCommand>`
 - Linux: `sh -lc <runtimeCommand>`
 
+## Remote SSH Runtime Mode
+- If `constraints.remoteHost`, `remoteUser`, `remotePassword` are provided, `runtimeCommand` is executed via SSH on the remote host.
+- Optional: `constraints.remotePort` (default `22`).
+
+```json
+{
+  "goalId": "remote-goal-001",
+  "naturalLanguageIntent": "run command on remote runtime host",
+  "successCriteria": ["remote_ok"],
+  "constraints": {
+    "runtimeCommand": "hostname",
+    "remoteHost": "172.23.115.116",
+    "remotePort": "22",
+    "remoteUser": "jiyongyang",
+    "remotePassword": "123456"
+  },
+  "maxRetries": 2,
+  "policyProfile": "default"
+}
+```
+
 ## Local Run
 ```bash
 docker compose -f infra/docker-compose.yml up -d --build

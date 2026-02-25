@@ -45,6 +45,26 @@ curl "http://127.0.0.1:8080/api/goals/executions?goalId=vm-goal-001"
 curl "http://127.0.0.1:8080/api/goals/vm-goal-001/trace"
 ```
 
+## 7) Remote SSH runtime execution (optional)
+```bash
+curl -X POST http://127.0.0.1:8080/api/goals/execute \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "goalId": "vm-goal-ssh-001",
+    "naturalLanguageIntent": "execute command over ssh",
+    "successCriteria": ["remote_ok"],
+    "constraints": {
+      "runtimeCommand": "hostname",
+      "remoteHost": "172.23.115.116",
+      "remotePort": "22",
+      "remoteUser": "jiyongyang",
+      "remotePassword": "123456"
+    },
+    "maxRetries": 2,
+    "policyProfile": "default"
+  }'
+```
+
 ## Notes
 - MySQL exposed on `3306`
 - Control Plane exposed on `8080`

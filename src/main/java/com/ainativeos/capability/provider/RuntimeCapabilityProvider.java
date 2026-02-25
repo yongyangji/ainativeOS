@@ -6,6 +6,7 @@ import com.ainativeos.domain.ContextFrame;
 import com.ainativeos.domain.OpExecutionResult;
 import com.ainativeos.runtime.CommandExecutionResult;
 import com.ainativeos.runtime.LocalCommandExecutor;
+import com.ainativeos.runtime.SshCommandExecutor;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -17,9 +18,11 @@ import java.util.Map;
 public class RuntimeCapabilityProvider implements CapabilityProvider {
 
     private final LocalCommandExecutor localCommandExecutor;
+    private final SshCommandExecutor sshCommandExecutor;
 
-    public RuntimeCapabilityProvider(LocalCommandExecutor localCommandExecutor) {
+    public RuntimeCapabilityProvider(LocalCommandExecutor localCommandExecutor, SshCommandExecutor sshCommandExecutor) {
         this.localCommandExecutor = localCommandExecutor;
+        this.sshCommandExecutor = sshCommandExecutor;
     }
 
     @Override
@@ -59,13 +62,12 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
 
         Object commandRaw = atomicOp.parameters().get("command");
         if (commandRaw instanceof String cmd && !cmd.isBlank()) {
-            List<String> shellCommand = buildShellCommand(cmd);
-            CommandExecutionResult commandResult = localCommandExecutor.execute(shellCommand, atomicOp.timeoutSeconds());
+            CommandExecutionResult commandResult = executeCommand(atomicOp, cmd);
             frames.add(new ContextFrame(
                     "runtime-command",
                     atomicOp.type(),
                     providerName(),
-                    "local-process",
+                    targetFingerprint(atomicOp),
                     Map.of(
                             "exitCode", String.valueOf(commandResult.exitCode()),
                             "durationMs", String.valueOf(commandResult.durationMs())
@@ -108,6 +110,52 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
             return List.of("powershell", "-Command", cmd);
         }
         return List.of("sh", "-lc", cmd);
+    }
+
+    private CommandExecutionResult executeCommand(AtomicOp atomicOp, String command) {
+        String remoteHost = value(atomicOp, "remoteHost");
+        String remoteUser = value(atomicOp, "remoteUser");
+        String remotePassword = value(atomicOp, "remotePassword");
+        if (remoteHost != null && remoteUser != null && remotePassword != null) {
+            int port = parseIntOrDefault(value(atomicOp, "remotePort"), 22);
+            return sshCommandExecutor.execute(
+                    remoteHost,
+                    port,
+                    remoteUser,
+                    remotePassword,
+                    command,
+                    atomicOp.timeoutSeconds()
+            );
+        }
+        List<String> shellCommand = buildShellCommand(command);
+        return localCommandExecutor.execute(shellCommand, atomicOp.timeoutSeconds());
+    }
+
+    private String targetFingerprint(AtomicOp atomicOp) {
+        String remoteHost = value(atomicOp, "remoteHost");
+        if (remoteHost != null) {
+            return "ssh://" + remoteHost;
+        }
+        return "local-process";
+    }
+
+    private String value(AtomicOp op, String key) {
+        Object val = op.parameters().get(key);
+        if (val instanceof String s && !s.isBlank()) {
+            return s;
+        }
+        return null;
+    }
+
+    private int parseIntOrDefault(String val, int defaultValue) {
+        if (val == null) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(val);
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
     }
 
     private String summarize(String message, String fallback) {
