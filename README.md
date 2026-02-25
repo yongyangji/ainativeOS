@@ -1,42 +1,42 @@
-# AI-Native OS (Java + MySQL)
+﻿# AI-Native OS（Java + MySQL）
 
-AI-Native unified operating model with:
-- Semantic Kernel for goal-driven orchestration
-- Unified capability abstraction (`FILE_*`, `NETWORK_*`, `COMPUTE_*`, `RUNTIME_*`)
-- Self-healing VFS contract (`FailureObject` + `ContextStack` + `ErrorVector`)
-- Stateless runtime intent (`DesiredState` declarative model)
+AI-Native 统一操作模型，核心能力包括：
+- 面向目标的语义内核（Semantic Kernel）编排
+- 统一能力抽象（`FILE_*`、`NETWORK_*`、`COMPUTE_*`、`RUNTIME_*`）
+- 自愈式 VFS 契约（`FailureObject` + `ContextStack` + `ErrorVector`）
+- 声明式无状态运行意图（`DesiredState`）
 
-## Stack
+## 技术栈
 - Java 21
 - Spring Boot 3.3.x
 - MySQL 8.4
 - Docker / Docker Compose
 
-## Main Modules
-- Planner: `kernel/planner/DefaultGoalPlanner`
-- Policy Gate: `kernel/policy/SimplePolicyEngine`
-- Execution State Machine: `kernel/execution/SemanticExecutionEngine`
-- Capability Fabric: `capability/CapabilityRouter` + providers
-- Runtime Adapter: `runtime/LocalCommandExecutor`
-- Self-healing: `kernel/healing/FailureAnalyzer` + `RepairPlanner`
-- Persistence: `goal_execution` + `goal_trace`
+## 核心模块
+- 规划器：`kernel/planner/DefaultGoalPlanner`
+- 策略门控：`kernel/policy/SimplePolicyEngine`
+- 执行状态机：`kernel/execution/SemanticExecutionEngine`
+- 能力总线：`capability/CapabilityRouter` + Providers
+- 运行时适配器：`runtime/LocalCommandExecutor`、`runtime/SshCommandExecutor`
+- 自愈模块：`kernel/healing/FailureAnalyzer` + `RepairPlanner`
+- 持久化：`goal_execution` + `goal_trace`
 
-## API
+## API 列表
 - `POST /api/goals/plan`
 - `POST /api/goals/execute`
 - `GET /api/goals/executions?goalId=...`
 - `GET /api/goals/{goalId}/trace`
 - `GET /api/goals/health`
 
-## API Examples
+## 接口示例
 
-### 1) Health
-Request:
+### 1）健康检查
+请求：
 ```bash
 curl -s http://127.0.0.1:8080/api/goals/health
 ```
 
-Response:
+响应：
 ```json
 {
   "service": "ainativeos-control-plane",
@@ -46,14 +46,14 @@ Response:
 }
 ```
 
-### 2) Plan Goal
-Request:
+### 2）目标规划（Plan）
+请求：
 ```bash
 curl -s -X POST http://127.0.0.1:8080/api/goals/plan \
   -H "Content-Type: application/json" \
   -d '{
     "goalId": "goal-plan-001",
-    "naturalLanguageIntent": "install mysql client and run smoke test",
+    "naturalLanguageIntent": "安装 mysql 客户端并执行冒烟测试",
     "successCriteria": ["client_installed", "smoke_test_passed"],
     "constraints": {
       "cost": "low",
@@ -64,12 +64,12 @@ curl -s -X POST http://127.0.0.1:8080/api/goals/plan \
   }'
 ```
 
-Response (trimmed):
+响应（节选）：
 ```json
 {
   "goalSpec": {
     "goalId": "goal-plan-001",
-    "naturalLanguageIntent": "install mysql client and run smoke test",
+    "naturalLanguageIntent": "安装 mysql 客户端并执行冒烟测试",
     "successCriteria": ["client_installed", "smoke_test_passed"],
     "constraints": {"cost": "low", "security": "high"},
     "maxRetries": 2,
@@ -77,12 +77,7 @@ Response (trimmed):
   },
   "desiredState": {
     "stateId": "state-goal-plan-001",
-    "summary": "Converge declared runtime state",
-    "declaredResources": {
-      "runtime": "immutable-container",
-      "interface": "api-first-capability-fabric",
-      "targetIntent": "install mysql client and run smoke test"
-    }
+    "summary": "Converge declared runtime state"
   },
   "atomicOps": [
     {"opId": "op-parse", "type": "COMPUTE_PARSE_INTENT"},
@@ -95,31 +90,14 @@ Response (trimmed):
 }
 ```
 
-### Sample Execute Request
-```json
-{
-  "goalId": "goal-1001",
-  "naturalLanguageIntent": "Install mysql client and verify in immutable runtime",
-  "successCriteria": ["client_installed", "smoke_test_passed"],
-  "constraints": {
-    "cost": "low",
-    "security": "high",
-    "simulateFailure": "true",
-    "runtimeCommand": "echo runtime command from semantic kernel"
-  },
-  "maxRetries": 2,
-  "policyProfile": "default"
-}
-```
-
-### 3) Execute Goal (Local Runtime Command)
-Request:
+### 3）目标执行（本地运行命令）
+请求：
 ```bash
 curl -s -X POST http://127.0.0.1:8080/api/goals/execute \
   -H "Content-Type: application/json" \
   -d '{
     "goalId": "goal-exec-local-001",
-    "naturalLanguageIntent": "execute runtime command locally",
+    "naturalLanguageIntent": "本地执行命令",
     "successCriteria": ["command_ok"],
     "constraints": {
       "runtimeCommand": "echo hello-local"
@@ -129,7 +107,7 @@ curl -s -X POST http://127.0.0.1:8080/api/goals/execute \
   }'
 ```
 
-Response (trimmed):
+响应（节选）：
 ```json
 {
   "goalId": "goal-exec-local-001",
@@ -147,19 +125,18 @@ Response (trimmed):
       "attempt": 1
     },
     {"opId": "op-verify", "status": "SUCCEEDED", "attempt": 1}
-  ],
-  "completedAt": "2026-02-25T04:49:35.763416274Z"
+  ]
 }
 ```
 
-### 4) Execute Goal (Self-healing Retry Path)
-Request (`simulateFailure=true` makes first apply fail, then patch+retry):
+### 4）目标执行（自愈重试路径）
+请求（`simulateFailure=true` 会让首次 `op-apply` 失败，然后自动修复并重试）：
 ```bash
 curl -s -X POST http://127.0.0.1:8080/api/goals/execute \
   -H "Content-Type: application/json" \
   -d '{
     "goalId": "goal-exec-heal-001",
-    "naturalLanguageIntent": "test self-healing",
+    "naturalLanguageIntent": "测试自愈能力",
     "successCriteria": ["command_ok"],
     "constraints": {
       "runtimeCommand": "echo healed",
@@ -170,49 +147,19 @@ curl -s -X POST http://127.0.0.1:8080/api/goals/execute \
   }'
 ```
 
-Response behavior:
-- `op-apply` attempt `1`: `FAILED`
-- `op-apply` attempt `2`: `SUCCEEDED`
-- final `status`: `SUCCEEDED`
+预期行为：
+- `op-apply` 第 1 次：`FAILED`
+- `op-apply` 第 2 次：`SUCCEEDED`
+- 最终状态：`SUCCEEDED`
 
-## Runtime Command Mode
-- If `constraints.runtimeCommand` is provided, runtime provider executes command via local shell.
-- Windows: `powershell -Command <runtimeCommand>`
-- Linux: `sh -lc <runtimeCommand>`
-
-## Remote SSH Runtime Mode
-- If `constraints.remoteHost`, `remoteUser`, `remotePassword` are provided, `runtimeCommand` is executed via SSH on the remote host.
-- Optional: `constraints.remotePort` (default `22`).
-- Key auth is also supported and preferred:
-  - `remotePrivateKeyBase64` (recommended)
-  - or `remotePrivateKey`
-  - optional `remotePassphrase`
-
-```json
-{
-  "goalId": "remote-goal-001",
-  "naturalLanguageIntent": "run command on remote runtime host",
-  "successCriteria": ["remote_ok"],
-  "constraints": {
-    "runtimeCommand": "hostname",
-    "remoteHost": "172.23.115.116",
-    "remotePort": "22",
-    "remoteUser": "jiyongyang",
-    "remotePassword": "123456"
-  },
-  "maxRetries": 2,
-  "policyProfile": "default"
-}
-```
-
-### 5) Execute Goal (Remote SSH Key Auth)
-Request:
+### 5）目标执行（远程 SSH Key）
+请求：
 ```bash
 curl -s -X POST http://127.0.0.1:8080/api/goals/execute \
   -H "Content-Type: application/json" \
   -d '{
     "goalId": "goal-exec-ssh-key-001",
-    "naturalLanguageIntent": "execute command over ssh key",
+    "naturalLanguageIntent": "通过 SSH Key 在远端执行命令",
     "successCriteria": ["remote_ok"],
     "constraints": {
       "runtimeCommand": "hostname",
@@ -226,7 +173,7 @@ curl -s -X POST http://127.0.0.1:8080/api/goals/execute \
   }'
 ```
 
-Response (trimmed):
+响应（节选）：
 ```json
 {
   "goalId": "goal-exec-ssh-key-001",
@@ -242,13 +189,13 @@ Response (trimmed):
 }
 ```
 
-### 6) Query Executions
-Request:
+### 6）查询执行记录
+请求：
 ```bash
 curl -s "http://127.0.0.1:8080/api/goals/executions?goalId=goal-exec-ssh-key-001"
 ```
 
-Response:
+响应：
 ```json
 [
   {
@@ -262,13 +209,13 @@ Response:
 ]
 ```
 
-### 7) Query Trace
-Request:
+### 7）查询执行轨迹
+请求：
 ```bash
 curl -s "http://127.0.0.1:8080/api/goals/goal-exec-ssh-key-001/trace"
 ```
 
-Response (trimmed):
+响应（节选）：
 ```json
 [
   {"opId": "op-parse", "status": "SUCCEEDED", "attempt": 1},
@@ -279,107 +226,104 @@ Response (trimmed):
 ]
 ```
 
-## Field Dictionary
+## 运行模式说明
 
-### GoalSpec (request body for `/api/goals/plan` and `/api/goals/execute`)
-| Field | Type | Required | Description | Example |
+### 本地命令模式
+- 当传入 `constraints.runtimeCommand` 时，运行时会在本地 shell 执行命令。
+- Windows：`powershell -Command <runtimeCommand>`
+- Linux：`sh -lc <runtimeCommand>`
+
+### 远程 SSH 模式
+- 当传入 `remoteHost` + `remoteUser` + 认证信息（密码或私钥）时，会在远端执行 `runtimeCommand`。
+- 可选 `remotePort`，默认 `22`。
+
+### SSH 认证优先级
+1. `remotePrivateKeyBase64`（推荐）
+2. `remotePrivateKey`
+3. `remotePassword`（兜底）
+
+## 字段字典
+
+### GoalSpec（`/api/goals/plan` 与 `/api/goals/execute` 请求体）
+| 字段 | 类型 | 必填 | 说明 | 示例 |
 |---|---|---|---|---|
-| `goalId` | `string` | Yes | Goal unique identifier. | `goal-exec-001` |
-| `naturalLanguageIntent` | `string` | Yes | Natural language goal description. | `install mysql client and verify` |
-| `successCriteria` | `string[]` | Yes | Success conditions for verification stage. | `["client_installed","smoke_test_passed"]` |
-| `constraints` | `object<string,string>` | No | Runtime and policy constraints map. | `{ "runtimeCommand":"hostname" }` |
-| `maxRetries` | `number` | No | Max retries for failed atomic operations. Default from config if `<=0`. | `2` |
-| `policyProfile` | `string` | No | Policy profile name. Empty/null -> `default`. | `default` |
+| `goalId` | `string` | 是 | 目标唯一标识。 | `goal-exec-001` |
+| `naturalLanguageIntent` | `string` | 是 | 自然语言目标描述。 | `安装 mysql 客户端并验证` |
+| `successCriteria` | `string[]` | 是 | 成功判据列表。 | `["client_installed","smoke_test_passed"]` |
+| `constraints` | `object<string,string>` | 否 | 运行/策略约束键值集合。 | `{ "runtimeCommand":"hostname" }` |
+| `maxRetries` | `number` | 否 | 原子操作失败后的最大重试次数；`<=0` 使用默认配置。 | `2` |
+| `policyProfile` | `string` | 否 | 策略档位；空值自动归一化为 `default`。 | `default` |
 
-### `constraints` common keys
-| Key | Required | Description | Example |
+### constraints 常用键
+| 键 | 必填 | 说明 | 示例 |
 |---|---|---|---|
-| `runtimeCommand` | No | Shell command executed in runtime stage. | `echo hello` |
-| `simulateFailure` | No | If `true`, first runtime apply intentionally fails to test self-healing. | `true` |
-| `remoteHost` | No | SSH target host/IP for remote runtime execution. | `172.23.115.116` |
-| `remotePort` | No | SSH target port, default `22`. | `22` |
-| `remoteUser` | No | SSH username. | `jiyongyang` |
-| `remotePassword` | No | SSH password (fallback auth mode). | `123456` |
-| `remotePrivateKeyBase64` | No | Base64 encoded private key content (preferred). | `<base64-pem>` |
-| `remotePrivateKey` | No | Raw PEM private key text. | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
-| `remotePassphrase` | No | Passphrase for encrypted private key. | `my-passphrase` |
+| `runtimeCommand` | 否 | 运行时阶段要执行的命令。 | `echo hello` |
+| `simulateFailure` | 否 | 设为 `true` 时首轮 apply 人工失败，用于验证自愈链路。 | `true` |
+| `remoteHost` | 否 | SSH 目标地址。 | `172.23.115.116` |
+| `remotePort` | 否 | SSH 端口，默认 `22`。 | `22` |
+| `remoteUser` | 否 | SSH 用户名。 | `jiyongyang` |
+| `remotePassword` | 否 | SSH 密码（兜底认证）。 | `123456` |
+| `remotePrivateKeyBase64` | 否 | Base64 编码的私钥内容（推荐）。 | `<base64-pem>` |
+| `remotePrivateKey` | 否 | 原始 PEM 私钥文本。 | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `remotePassphrase` | 否 | 私钥口令（私钥加密时使用）。 | `my-passphrase` |
 
-### GoalPlan (response from `/api/goals/plan`)
-| Field | Type | Description |
+### GoalPlan（`/api/goals/plan` 响应）
+| 字段 | 类型 | 说明 |
 |---|---|---|
-| `goalSpec` | `GoalSpec` | Input goal after validation and normalization context. |
-| `desiredState` | `object` | Declarative target state for runtime convergence. |
-| `atomicOps` | `AtomicOp[]` | Planned execution steps in order. |
-| `plannerVersion` | `string` | Planner implementation version identifier. |
+| `goalSpec` | `GoalSpec` | 校验后的目标输入。 |
+| `desiredState` | `object` | 目标声明式状态。 |
+| `atomicOps` | `AtomicOp[]` | 规划后的原子步骤序列。 |
+| `plannerVersion` | `string` | 规划器版本标识。 |
 
-### GoalExecutionResult (response from `/api/goals/execute`)
-| Field | Type | Description |
+### GoalExecutionResult（`/api/goals/execute` 响应）
+| 字段 | 类型 | 说明 |
 |---|---|---|
-| `goalId` | `string` | Echoed goal id. |
-| `status` | `string` | Final status: `SUCCEEDED`, `FAILED`, `BLOCKED`. |
-| `message` | `string` | Human-readable summary of execution outcome. |
-| `failureObject` | `object \| null` | Structured failure detail when terminal failure occurs. |
-| `trace` | `ExecutionTraceEntry[]` | Full step-by-step execution trace. |
-| `completedAt` | `datetime` | Completion timestamp (UTC). |
+| `goalId` | `string` | 目标 ID。 |
+| `status` | `string` | 最终状态：`SUCCEEDED`、`FAILED`、`BLOCKED`。 |
+| `message` | `string` | 执行结果摘要。 |
+| `failureObject` | `object \| null` | 终态失败时的结构化失败对象。 |
+| `trace` | `ExecutionTraceEntry[]` | 全链路执行轨迹。 |
+| `completedAt` | `datetime` | 完成时间（UTC）。 |
 
-### FailureObject (inside `GoalExecutionResult.failureObject`)
-| Field | Type | Description |
+### FailureObject（`GoalExecutionResult.failureObject`）
+| 字段 | 类型 | 说明 |
 |---|---|---|
-| `failureId` | `string` | Failure event unique id. |
-| `goalId` | `string` | Related goal id. |
-| `failedOpId` | `string` | Failed atomic op id. |
-| `contextStack` | `ContextFrame[]` | Runtime context stack at failure time. |
-| `errorVectors` | `ErrorVector[]` | Structured error vectors for reasoning/repair. |
-| `patchHints` | `string[]` | Suggested patch/recovery hints. |
-| `retryToken` | `string` | Token associated with retry attempt chain. |
-| `diagnostics` | `object` | Provider-specific diagnostic payload. |
+| `failureId` | `string` | 失败事件 ID。 |
+| `goalId` | `string` | 所属目标 ID。 |
+| `failedOpId` | `string` | 失败原子步骤 ID。 |
+| `contextStack` | `ContextFrame[]` | 失败时上下文栈。 |
+| `errorVectors` | `ErrorVector[]` | 结构化错误向量。 |
+| `patchHints` | `string[]` | 修复建议。 |
+| `retryToken` | `string` | 重试链路标记。 |
+| `diagnostics` | `object` | Provider 诊断信息。 |
 
-### Execution list API (`GET /api/goals/executions`)
-| Field | Type | Description |
+### 执行记录查询（`GET /api/goals/executions`）
+| 字段 | 类型 | 说明 |
 |---|---|---|
-| `id` | `number` | Execution row id. |
-| `goalId` | `string` | Goal id. |
-| `status` | `string` | Final status. |
-| `summary` | `string` | Summary message persisted for query view. |
-| `plannerVersion` | `string` | Planner version used for this run. |
-| `createdAt` | `datetime` | Persisted execution time. |
+| `id` | `number` | 执行记录主键。 |
+| `goalId` | `string` | 目标 ID。 |
+| `status` | `string` | 最终状态。 |
+| `summary` | `string` | 执行摘要。 |
+| `plannerVersion` | `string` | 规划器版本。 |
+| `createdAt` | `datetime` | 记录创建时间。 |
 
-### Trace API (`GET /api/goals/{goalId}/trace`)
-| Field | Type | Description |
+### 轨迹查询（`GET /api/goals/{goalId}/trace`）
+| 字段 | 类型 | 说明 |
 |---|---|---|
-| `id` | `number` | Trace row id. |
-| `goalId` | `string` | Goal id. |
-| `opId` | `string` | Atomic op id. |
-| `opType` | `string` | Atomic op type. |
-| `provider` | `string` | Provider that handled this op. |
-| `status` | `string` | Per-step status. |
-| `message` | `string` | Per-step result message. |
-| `attempt` | `number` | Attempt index (starts at 1). |
-| `timestamp` | `datetime` | Step event time. |
+| `id` | `number` | 轨迹记录主键。 |
+| `goalId` | `string` | 目标 ID。 |
+| `opId` | `string` | 原子步骤 ID。 |
+| `opType` | `string` | 原子步骤类型。 |
+| `provider` | `string` | 执行该步骤的 Provider。 |
+| `status` | `string` | 步骤状态。 |
+| `message` | `string` | 步骤消息。 |
+| `attempt` | `number` | 重试序号（从 1 开始）。 |
+| `timestamp` | `datetime` | 事件时间。 |
 
-### Key Auth Example
-```json
-{
-  "goalId": "remote-goal-key-001",
-  "naturalLanguageIntent": "run command with ssh key auth",
-  "successCriteria": ["remote_ok"],
-  "constraints": {
-    "runtimeCommand": "hostname",
-    "remoteHost": "172.23.115.116",
-    "remotePort": "22",
-    "remoteUser": "jiyongyang",
-    "remotePrivateKeyBase64": "<base64-pem>",
-    "remotePassphrase": ""
-  },
-  "maxRetries": 2,
-  "policyProfile": "default"
-}
-```
-
-## Local Run
+## 本地运行
 ```bash
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-## VM Deployment
-See `docs/vm-setup.md`.
+## VM 部署
+见 `docs/vm-setup.md`。
