@@ -1,0 +1,315 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-Native OS 测试控制台</title>
+  <style>
+    :root {
+      --line: #d8deea;
+      --text: #172033;
+      --muted: #5e6a84;
+      --ok: #14804a;
+      --warn: #c46c00;
+      --err: #b42318;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: linear-gradient(120deg, #f7f8fc 0%, #edf1f9 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 14px;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 6px 18px rgba(12, 25, 54, .05);
+    }
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    button {
+      border: 1px solid #0f6ed8;
+      background: #0f6ed8;
+      color: #fff;
+      padding: 7px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button.secondary {
+      background: #fff;
+      color: #0f6ed8;
+    }
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: Consolas, "Courier New", monospace;
+      background: #fff;
+    }
+    textarea { min-height: 170px; resize: vertical; }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .status {
+      font-size: 12px;
+      margin: 4px 0 10px;
+      color: var(--muted);
+    }
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); }
+    .status.err { color: var(--err); }
+    pre {
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f172a;
+      color: #d7e1ff;
+      padding: 10px;
+      min-height: 420px;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      pre { min-height: 280px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI-Native OS 测试控制台</h1>
+  <p class="sub">用于快速测试 health、plan、execute、executions、trace、reconcile-jobs 接口</p>
+  <div class="grid">
+    <div class="panel">
+      <h2>接口操作</h2>
+      <div class="row">
+        <button onclick="callHealth()">健康检查</button>
+        <button class="secondary" onclick="fillSample()">填充示例 GoalSpec</button>
+      </div>
+
+      <label>GoalSpec JSON</label>
+      <textarea id="goalSpec"></textarea>
+
+      <div class="row" style="margin-top:10px;">
+        <button onclick="callPlan()">POST /api/goals/plan</button>
+        <button onclick="callExecute()">POST /api/goals/execute</button>
+      </div>
+
+      <div class="inline">
+        <div>
+          <label>goalId（用于查询）</label>
+          <input id="goalId" placeholder="例如：goal-ui-001" />
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <div class="row" style="margin:0;">
+            <button class="secondary" onclick="callExecutions()">GET executions</button>
+            <button class="secondary" onclick="callTrace()">GET trace</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="secondary" onclick="callReconcileJobs()">GET reconcile-jobs</button>
+        <button class="secondary" onclick="clearOutput()">清空输出</button>
+      </div>
+      <div id="status" class="status">就绪</div>
+    </div>
+
+    <div class="panel">
+      <h2>响应输出</h2>
+      <pre id="output"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+  const output = document.getElementById("output");
+  const statusEl = document.getElementById("status");
+  const goalSpecEl = document.getElementById("goalSpec");
+  const goalIdEl = document.getElementById("goalId");
+
+  function setStatus(msg, level = "ok") {
+    statusEl.className = "status " + level;
+    statusEl.textContent = msg;
+  }
+
+  function pretty(v) {
+    if (typeof v === "string") return v;
+    try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+  }
+
+  async function request(path, method = "GET", body = null) {
+    const opts = { method, headers: {} };
+    if (body !== null) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    const res = await fetch(path, opts);
+    const text = await res.text();
+    let payload = text;
+    try { payload = JSON.parse(text); } catch {}
+    return { status: res.status, payload };
+  }
+
+  function append(title, data) {
+    const t = `[${new Date().toLocaleString()}] ${title}\n${pretty(data)}\n\n`;
+    output.textContent = t + output.textContent;
+  }
+
+  function parseGoalSpec() {
+    try {
+      return JSON.parse(goalSpecEl.value);
+    } catch (e) {
+      throw new Error("GoalSpec JSON 解析失败: " + e.message);
+    }
+  }
+
+  async function callHealth() {
+    try {
+      setStatus("请求中...");
+      const r = await request("/api/goals/health");
+      append("GET /api/goals/health", r);
+      setStatus("健康检查完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callPlan() {
+    try {
+      const body = parseGoalSpec();
+      setStatus("请求中...");
+      const r = await request("/api/goals/plan", "POST", body);
+      append("POST /api/goals/plan", r);
+      if (r.payload && r.payload.goalSpec && r.payload.goalSpec.goalId) {
+        goalIdEl.value = r.payload.goalSpec.goalId;
+      }
+      setStatus("plan 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callExecute() {
+    try {
+      const body = parseGoalSpec();
+      setStatus("请求中...");
+      const r = await request("/api/goals/execute", "POST", body);
+      append("POST /api/goals/execute", r);
+      if (r.payload && r.payload.goalId) {
+        goalIdEl.value = r.payload.goalId;
+      }
+      setStatus("execute 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callExecutions() {
+    const goalId = goalIdEl.value.trim();
+    const q = goalId ? ("?goalId=" + encodeURIComponent(goalId)) : "";
+    try {
+      setStatus("请求中...");
+      const r = await request("/api/goals/executions" + q);
+      append("GET /api/goals/executions" + q, r);
+      setStatus("executions 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callTrace() {
+    const goalId = goalIdEl.value.trim();
+    if (!goalId) {
+      setStatus("请先输入 goalId", "warn");
+      return;
+    }
+    try {
+      setStatus("请求中...");
+      const r = await request("/api/goals/" + encodeURIComponent(goalId) + "/trace");
+      append("GET /api/goals/" + goalId + "/trace", r);
+      setStatus("trace 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callReconcileJobs() {
+    const goalId = goalIdEl.value.trim();
+    const q = goalId ? ("?goalId=" + encodeURIComponent(goalId)) : "";
+    try {
+      setStatus("请求中...");
+      const r = await request("/api/goals/reconcile-jobs" + q);
+      append("GET /api/goals/reconcile-jobs" + q, r);
+      setStatus("reconcile-jobs 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  function clearOutput() {
+    output.textContent = "";
+    setStatus("输出已清空");
+  }
+
+  function fillSample() {
+    const sample = {
+      goalId: "goal-ui-001",
+      naturalLanguageIntent: "continuous desired state reconcile",
+      successCriteria: ["reconcile_ok"],
+      constraints: {
+        runtimeCommand: "echo fallback",
+        continuousReconcile: "true",
+        reconcileApplyCommand: "echo apply",
+        reconcileVerifyCommand: "echo verify"
+      },
+      maxRetries: 2,
+      policyProfile: "default"
+    };
+    goalSpecEl.value = JSON.stringify(sample, null, 2);
+    goalIdEl.value = sample.goalId;
+    setStatus("已填充示例 GoalSpec");
+  }
+
+  fillSample();
+  callHealth();
+</script>
+</body>
+</html>

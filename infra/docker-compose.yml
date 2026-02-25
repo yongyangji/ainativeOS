@@ -43,5 +43,16 @@ services:
     ports:
       - "8080:8080"
 
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    container_name: ainativeos-frontend
+    restart: unless-stopped
+    depends_on:
+      - control-plane
+    ports:
+      - "8081:80"
+
 volumes:
   mysql_data:
