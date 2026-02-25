@@ -94,7 +94,8 @@ curl -s -X POST http://127.0.0.1:8080/api/goals/plan \
     {"opId": "op-apply", "type": "RUNTIME_APPLY_DECLARATIVE_STATE"},
     {"opId": "op-verify", "type": "COMPUTE_VERIFY_SUCCESS"}
   ],
-  "plannerVersion": "planner-v3"
+  "plannerVersion": "planner-v3",
+  "llmUsed": false
 }
 ```
 
@@ -121,6 +122,7 @@ curl -s -X POST http://127.0.0.1:8080/api/goals/execute \
   "goalId": "goal-exec-local-001",
   "status": "SUCCEEDED",
   "message": "Goal converged to desired state",
+  "llmUsed": false,
   "failureObject": null,
   "trace": [
     {"opId": "op-parse", "status": "SUCCEEDED", "attempt": 1},
@@ -366,6 +368,7 @@ Docker Compose 场景下，推荐在 `infra/.env` 中配置 `LLM_*`（模板见 
 | `desiredState` | `object` | 目标声明式状态。 |
 | `atomicOps` | `AtomicOp[]` | 规划后的原子步骤序列。 |
 | `plannerVersion` | `string` | 规划器版本标识。 |
+| `llmUsed` | `boolean` | 本次规划是否命中 LLM 推理。 |
 
 ### GoalExecutionResult（`/api/goals/execute` 响应）
 | 字段 | 类型 | 说明 |
@@ -373,6 +376,7 @@ Docker Compose 场景下，推荐在 `infra/.env` 中配置 `LLM_*`（模板见 
 | `goalId` | `string` | 目标 ID。 |
 | `status` | `string` | 最终状态：`SUCCEEDED`、`FAILED`、`BLOCKED`。 |
 | `message` | `string` | 执行结果摘要。 |
+| `llmUsed` | `boolean` | 本次执行对应计划是否命中 LLM 推理。 |
 | `failureObject` | `object \| null` | 终态失败时的结构化失败对象。 |
 | `trace` | `ExecutionTraceEntry[]` | 全链路执行轨迹。 |
 | `completedAt` | `datetime` | 完成时间（UTC）。 |
@@ -416,6 +420,18 @@ Docker Compose 场景下，推荐在 `infra/.env` 中配置 `LLM_*`（模板见 
 ```bash
 docker compose -f infra/docker-compose.yml up -d --build
 ```
+
+启动后访问：
+- 后端 API：`http://127.0.0.1:8080/api/goals/health`
+- 前端测试页：`http://127.0.0.1:8081`
+
+前端页面内置以下接口测试按钮：
+- `GET /api/goals/health`
+- `POST /api/goals/plan`
+- `POST /api/goals/execute`
+- `GET /api/goals/executions`
+- `GET /api/goals/{goalId}/trace`
+- `GET /api/goals/reconcile-jobs`
 
 ## VM 部署
 见 `docs/vm-setup.md`。
