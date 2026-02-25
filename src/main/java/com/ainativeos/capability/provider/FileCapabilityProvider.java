@@ -11,6 +11,10 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+/**
+ * 文件能力 Provider。
+ * 处理 FILE_* 原子操作。
+ */
 public class FileCapabilityProvider implements CapabilityProvider {
 
     @Override

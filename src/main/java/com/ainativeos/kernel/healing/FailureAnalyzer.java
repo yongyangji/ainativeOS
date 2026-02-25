@@ -13,9 +13,16 @@ import java.util.Map;
 import java.util.UUID;
 
 @Component
+/**
+ * 失败分析器。
+ * <p>
+ * 将 Provider 返回的失败结果转为统一 FailureObject，
+ * 供自愈策略、审计与后续排障使用。
+ */
 public class FailureAnalyzer {
 
     public FailureObject buildFailure(String goalId, AtomicOp op, OpExecutionResult opResult, int attempt) {
+        // 构建错误向量：抽象错误类别、阶段、可恢复性及建议
         ErrorVector vector = new ErrorVector(
                 "execution",
                 opResult.errorCode() == null ? "UNKNOWN_ERROR" : opResult.errorCode(),
@@ -58,6 +65,7 @@ public class FailureAnalyzer {
     }
 
     private Recoverability inferRecoverability(String errorCode) {
+        // 简化推断规则：找不到/未解析通常可修复，否则优先按可重试处理
         if (errorCode == null) {
             return Recoverability.REPAIRABLE;
         }

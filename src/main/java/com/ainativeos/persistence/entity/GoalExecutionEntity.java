@@ -11,6 +11,10 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "goal_execution")
+/**
+ * 目标执行摘要实体。
+ * 对应执行记录表：goal_execution。
+ */
 public class GoalExecutionEntity {
 
     @Id

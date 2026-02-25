@@ -11,6 +11,10 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "goal_trace")
+/**
+ * 目标执行轨迹实体。
+ * 对应步骤级轨迹表：goal_trace。
+ */
 public class GoalTraceEntity {
 
     @Id

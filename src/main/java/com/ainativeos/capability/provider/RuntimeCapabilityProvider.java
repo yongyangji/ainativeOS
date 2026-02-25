@@ -15,6 +15,14 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+/**
+ * 运行时能力 Provider。
+ * <p>
+ * 支持三种执行路径：
+ * 1. 本地 shell 执行（LocalCommandExecutor）
+ * 2. SSH 密码认证执行
+ * 3. SSH 私钥认证执行（Base64 或原始 PEM）
+ */
 public class RuntimeCapabilityProvider implements CapabilityProvider {
 
     private final LocalCommandExecutor localCommandExecutor;
@@ -37,6 +45,7 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
 
     @Override
     public OpExecutionResult execute(AtomicOp atomicOp) {
+        // 测试开关：用于主动制造首轮失败，验证自愈重试能力
         boolean simulateFailure = Boolean.TRUE.equals(atomicOp.parameters().get("simulateFailure"));
 
         List<ContextFrame> frames = new ArrayList<>();
@@ -62,6 +71,7 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
 
         Object commandRaw = atomicOp.parameters().get("command");
         if (commandRaw instanceof String cmd && !cmd.isBlank()) {
+            // 根据参数自动选择本地/SSH执行路径
             CommandExecutionResult commandResult = executeCommand(atomicOp, cmd);
             frames.add(new ContextFrame(
                     "runtime-command",
@@ -76,6 +86,7 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
             ));
 
             if (!commandResult.success()) {
+                // 统一失败模型，供执行引擎构建 FailureObject
                 return new OpExecutionResult(
                         false,
                         providerName(),
@@ -119,6 +130,7 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
         String privateKey = value(atomicOp, "remotePrivateKey");
         String passphrase = value(atomicOp, "remotePassphrase");
         int port = parseIntOrDefault(value(atomicOp, "remotePort"), 22);
+        // 认证优先级：Key(Base64) > Key(PEM) > Password
         if (remoteHost != null && remoteUser != null && privateKeyBase64 != null) {
             return sshCommandExecutor.executeWithKeyBase64(
                     remoteHost,
@@ -153,6 +165,7 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
             );
         }
         List<String> shellCommand = buildShellCommand(command);
+        // 未提供远程信息则默认走本地执行
         return localCommandExecutor.execute(shellCommand, atomicOp.timeoutSeconds());
     }
 

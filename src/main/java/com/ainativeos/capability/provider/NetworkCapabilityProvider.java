@@ -11,6 +11,10 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+/**
+ * 网络能力 Provider。
+ * 处理 NETWORK_* 原子操作。
+ */
 public class NetworkCapabilityProvider implements CapabilityProvider {
 
     @Override

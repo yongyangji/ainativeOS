@@ -14,6 +14,15 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+/**
+ * 动态健康检查服务。
+ * <p>
+ * 该服务不依赖静态常量返回，而是实时检查：
+ * 1. 数据库可用性（SELECT 1）
+ * 2. 语义内核关键组件是否装配
+ * 3. 能力层 Provider 是否完整
+ * 4. 自愈模块是否装配
+ */
 public class HealthCheckService {
 
     private final JdbcTemplate jdbcTemplate;
@@ -40,6 +49,7 @@ public class HealthCheckService {
     }
 
     public Map<String, Object> check() {
+        // 统一健康返回对象，便于前端/运维系统直接消费
         Map<String, Object> response = new HashMap<>();
         response.put("service", "ainativeos-control-plane");
         response.put("timestamp", Instant.now());
@@ -54,6 +64,7 @@ public class HealthCheckService {
         response.put("capabilityFabric", capabilityFabricStatus);
         response.put("selfHealingVfs", selfHealingStatus);
 
+        // 总体状态：全部 ready 为 UP，否则标记为 DEGRADED
         boolean healthy = "ready".equals(dbStatus)
                 && "ready".equals(semanticKernelStatus)
                 && "ready".equals(capabilityFabricStatus)
@@ -64,6 +75,7 @@ public class HealthCheckService {
 
     private String checkDatabase() {
         try {
+            // 最轻量的可达性探测；不读取业务表，避免健康检查产生额外副作用
             Integer result = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
             return result != null && result == 1 ? "ready" : "degraded";
         } catch (Exception ignored) {
@@ -72,16 +84,19 @@ public class HealthCheckService {
     }
 
     private String checkSemanticKernel() {
+        // planner + execution engine 是语义内核最关键的两个装配点
         return goalPlanner != null && executionEngine != null ? "ready" : "degraded";
     }
 
     private String checkCapabilityFabric() {
+        // 能力层至少要有一个 runtime provider，才可执行 RUNTIME_* 操作
         boolean hasRuntimeProvider = capabilityProviders.stream()
                 .anyMatch(provider -> "runtime-provider".equals(provider.providerName()));
         return !capabilityProviders.isEmpty() && hasRuntimeProvider ? "ready" : "degraded";
     }
 
     private String checkSelfHealing() {
+        // 失败分析 + 修复规划都存在，才说明自愈链路完整
         return failureAnalyzer != null && repairPlanner != null ? "ready" : "degraded";
     }
 }

@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
+/**
+ * 目标执行摘要仓储。
+ */
 public interface GoalExecutionRepository extends JpaRepository<GoalExecutionEntity, Long> {
     List<GoalExecutionEntity> findTop50ByGoalIdOrderByCreatedAtDesc(String goalId);
 

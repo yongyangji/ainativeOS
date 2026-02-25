@@ -14,6 +14,14 @@ import java.util.Base64;
 import java.util.Properties;
 
 @Component
+/**
+ * SSH 命令执行器。
+ * <p>
+ * 支持：
+ * - 密码认证
+ * - 私钥认证（Base64 或 PEM）
+ * 并统一返回执行结果对象，供运行时 Provider 组合使用。
+ */
 public class SshCommandExecutor {
 
     public CommandExecutionResult execute(
@@ -24,6 +32,7 @@ public class SshCommandExecutor {
             String command,
             int timeoutSeconds
     ) {
+        // 密码认证入口
         return executeInternal(host, port, username, password, null, null, command, timeoutSeconds);
     }
 
@@ -36,6 +45,7 @@ public class SshCommandExecutor {
             String command,
             int timeoutSeconds
     ) {
+        // 原始 PEM 私钥认证入口
         return executeInternal(host, port, username, null, privateKeyPem, passphrase, command, timeoutSeconds);
     }
 
@@ -48,6 +58,7 @@ public class SshCommandExecutor {
             String command,
             int timeoutSeconds
     ) {
+        // Base64 私钥认证入口（常用于 JSON/配置传递）
         try {
             byte[] decoded = Base64.getDecoder().decode(privateKeyBase64);
             String pem = new String(decoded, StandardCharsets.UTF_8);
@@ -73,6 +84,7 @@ public class SshCommandExecutor {
 
         try {
             JSch jsch = new JSch();
+            // 如果传入私钥则优先配置密钥认证
             configureIdentity(jsch, privateKeyPem, passphrase);
             session = jsch.getSession(username, host, port);
             if (password != null) {
@@ -80,6 +92,7 @@ public class SshCommandExecutor {
             }
 
             Properties config = new Properties();
+            // 演示环境默认关闭 host key 校验；生产环境建议开启并维护 known_hosts
             config.put("StrictHostKeyChecking", "no");
             session.setConfig(config);
             session.connect(timeoutSeconds * 1000);
@@ -96,6 +109,7 @@ public class SshCommandExecutor {
             long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
             while (!channel.isClosed()) {
                 if (System.currentTimeMillis() > deadline) {
+                    // 远程命令执行超时，主动断链
                     channel.disconnect();
                     session.disconnect();
                     return new CommandExecutionResult(

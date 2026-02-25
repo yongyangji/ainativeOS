@@ -11,6 +11,10 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+/**
+ * 计算能力 Provider。
+ * 处理 COMPUTE_* 原子操作。
+ */
 public class ComputeCapabilityProvider implements CapabilityProvider {
 
     @Override
