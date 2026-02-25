@@ -30,4 +30,26 @@ class RuntimeCapabilityProviderTest {
         assertFalse(result.success());
         assertTrue(result.message().contains("failed"));
     }
+
+    @Test
+    void shouldFailOnInvalidKeyBase64() {
+        RuntimeCapabilityProvider provider = new RuntimeCapabilityProvider(new LocalCommandExecutor(), new SshCommandExecutor());
+        AtomicOp op = new AtomicOp(
+                "op-2",
+                "RUNTIME_APPLY_DECLARATIVE_STATE",
+                "runtime",
+                Map.of(
+                        "command", "hostname",
+                        "remoteHost", "127.0.0.1",
+                        "remoteUser", "user",
+                        "remotePrivateKeyBase64", "###invalid###"
+                ),
+                true,
+                true,
+                5
+        );
+
+        OpExecutionResult result = provider.execute(op);
+        assertFalse(result.success());
+    }
 }

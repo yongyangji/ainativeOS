@@ -65,6 +65,27 @@ curl -X POST http://127.0.0.1:8080/api/goals/execute \
   }'
 ```
 
+### SSH key auth variant
+Use `remotePrivateKeyBase64` instead of `remotePassword`:
+```bash
+curl -X POST http://127.0.0.1:8080/api/goals/execute \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "goalId": "vm-goal-ssh-key-001",
+    "naturalLanguageIntent": "execute command over ssh key auth",
+    "successCriteria": ["remote_ok"],
+    "constraints": {
+      "runtimeCommand": "hostname",
+      "remoteHost": "172.23.115.116",
+      "remotePort": "22",
+      "remoteUser": "jiyongyang",
+      "remotePrivateKeyBase64": "<base64-pem>"
+    },
+    "maxRetries": 2,
+    "policyProfile": "default"
+  }'
+```
+
 ## Notes
 - MySQL exposed on `3306`
 - Control Plane exposed on `8080`

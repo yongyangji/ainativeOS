@@ -53,6 +53,10 @@ AI-Native unified operating model with:
 ## Remote SSH Runtime Mode
 - If `constraints.remoteHost`, `remoteUser`, `remotePassword` are provided, `runtimeCommand` is executed via SSH on the remote host.
 - Optional: `constraints.remotePort` (default `22`).
+- Key auth is also supported and preferred:
+  - `remotePrivateKeyBase64` (recommended)
+  - or `remotePrivateKey`
+  - optional `remotePassphrase`
 
 ```json
 {
@@ -65,6 +69,25 @@ AI-Native unified operating model with:
     "remotePort": "22",
     "remoteUser": "jiyongyang",
     "remotePassword": "123456"
+  },
+  "maxRetries": 2,
+  "policyProfile": "default"
+}
+```
+
+### Key Auth Example
+```json
+{
+  "goalId": "remote-goal-key-001",
+  "naturalLanguageIntent": "run command with ssh key auth",
+  "successCriteria": ["remote_ok"],
+  "constraints": {
+    "runtimeCommand": "hostname",
+    "remoteHost": "172.23.115.116",
+    "remotePort": "22",
+    "remoteUser": "jiyongyang",
+    "remotePrivateKeyBase64": "<base64-pem>",
+    "remotePassphrase": ""
   },
   "maxRetries": 2,
   "policyProfile": "default"

@@ -115,9 +115,34 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
     private CommandExecutionResult executeCommand(AtomicOp atomicOp, String command) {
         String remoteHost = value(atomicOp, "remoteHost");
         String remoteUser = value(atomicOp, "remoteUser");
+        String privateKeyBase64 = value(atomicOp, "remotePrivateKeyBase64");
+        String privateKey = value(atomicOp, "remotePrivateKey");
+        String passphrase = value(atomicOp, "remotePassphrase");
+        int port = parseIntOrDefault(value(atomicOp, "remotePort"), 22);
+        if (remoteHost != null && remoteUser != null && privateKeyBase64 != null) {
+            return sshCommandExecutor.executeWithKeyBase64(
+                    remoteHost,
+                    port,
+                    remoteUser,
+                    privateKeyBase64,
+                    passphrase,
+                    command,
+                    atomicOp.timeoutSeconds()
+            );
+        }
+        if (remoteHost != null && remoteUser != null && privateKey != null) {
+            return sshCommandExecutor.executeWithKey(
+                    remoteHost,
+                    port,
+                    remoteUser,
+                    privateKey,
+                    passphrase,
+                    command,
+                    atomicOp.timeoutSeconds()
+            );
+        }
         String remotePassword = value(atomicOp, "remotePassword");
         if (remoteHost != null && remoteUser != null && remotePassword != null) {
-            int port = parseIntOrDefault(value(atomicOp, "remotePort"), 22);
             return sshCommandExecutor.execute(
                     remoteHost,
                     port,
