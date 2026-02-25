@@ -1,4 +1,4 @@
-﻿package com.ainativeos.kernel.policy;
+package com.ainativeos.kernel.policy;
 
 import com.ainativeos.domain.GoalPlan;
 import org.springframework.stereotype.Component;

@@ -1,4 +1,4 @@
-﻿package com.ainativeos.domain;
+package com.ainativeos.domain;
 
 public record ErrorVector(
         String category,

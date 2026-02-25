@@ -1,4 +1,4 @@
-﻿spring:
+spring:
   application:
     name: ainativeos-control-plane
   datasource:
@@ -18,3 +18,9 @@
 
 server:
   port: ${APP_PORT:8080}
+
+ainativeos:
+  execution:
+    default-max-retries: ${DEFAULT_MAX_RETRIES:2}
+    rollback-on-failure: ${ROLLBACK_ON_FAILURE:true}
+    default-op-timeout-seconds: ${DEFAULT_OP_TIMEOUT_SECONDS:60}

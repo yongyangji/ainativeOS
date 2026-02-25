@@ -1,4 +1,4 @@
-﻿package com.ainativeos.kernel.healing;
+package com.ainativeos.kernel.healing;
 
 import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.FailureObject;

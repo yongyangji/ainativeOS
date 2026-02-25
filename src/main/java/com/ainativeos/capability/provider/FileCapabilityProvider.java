@@ -1,4 +1,4 @@
-﻿package com.ainativeos.capability.provider;
+package com.ainativeos.capability.provider;
 
 import com.ainativeos.capability.CapabilityProvider;
 import com.ainativeos.domain.AtomicOp;

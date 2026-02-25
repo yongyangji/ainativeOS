@@ -1,4 +1,4 @@
-﻿package com.ainativeos.domain;
+package com.ainativeos.domain;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;

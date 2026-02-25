@@ -1,4 +1,4 @@
-﻿package com.ainativeos.persistence.entity;
+package com.ainativeos.persistence.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

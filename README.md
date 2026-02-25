@@ -1,10 +1,10 @@
-﻿# AI-Native OS (Java + MySQL)
+# AI-Native OS (Java + MySQL)
 
 AI-Native unified operating model with:
 - Semantic Kernel for goal-driven orchestration
-- Unified capability abstraction (FILE_*, NETWORK_*, COMPUTE_*, RUNTIME_*)
-- Self-healing VFS contract (FailureObject + ContextStack + ErrorVector)
-- Stateless runtime intent (DesiredState declarative model)
+- Unified capability abstraction (`FILE_*`, `NETWORK_*`, `COMPUTE_*`, `RUNTIME_*`)
+- Self-healing VFS contract (`FailureObject` + `ContextStack` + `ErrorVector`)
+- Stateless runtime intent (`DesiredState` declarative model)
 
 ## Stack
 - Java 21
@@ -13,20 +13,23 @@ AI-Native unified operating model with:
 - Docker / Docker Compose
 
 ## Main Modules
-- Planner: kernel/planner/DefaultGoalPlanner
-- Policy Gate: kernel/policy/SimplePolicyEngine
-- Execution State Machine: kernel/execution/SemanticExecutionEngine
-- Capability Fabric: capability/CapabilityRouter + providers
-- Self-healing: kernel/healing/FailureAnalyzer + RepairPlanner
-- Persistence: goal_execution + goal_trace
+- Planner: `kernel/planner/DefaultGoalPlanner`
+- Policy Gate: `kernel/policy/SimplePolicyEngine`
+- Execution State Machine: `kernel/execution/SemanticExecutionEngine`
+- Capability Fabric: `capability/CapabilityRouter` + providers
+- Runtime Adapter: `runtime/LocalCommandExecutor`
+- Self-healing: `kernel/healing/FailureAnalyzer` + `RepairPlanner`
+- Persistence: `goal_execution` + `goal_trace`
 
 ## API
-- POST /api/goals/plan
-- POST /api/goals/execute
-- GET /api/goals/health
+- `POST /api/goals/plan`
+- `POST /api/goals/execute`
+- `GET /api/goals/executions?goalId=...`
+- `GET /api/goals/{goalId}/trace`
+- `GET /api/goals/health`
 
 ### Sample Execute Request
-`json
+```json
 {
   "goalId": "goal-1001",
   "naturalLanguageIntent": "Install mysql client and verify in immutable runtime",
@@ -34,19 +37,23 @@ AI-Native unified operating model with:
   "constraints": {
     "cost": "low",
     "security": "high",
-    "simulateFailure": "true"
+    "simulateFailure": "true",
+    "runtimeCommand": "echo runtime command from semantic kernel"
   },
   "maxRetries": 2,
   "policyProfile": "default"
 }
-`
+```
 
-With simulateFailure=true, runtime op fails once, then self-healing patch removes failure flag and retries.
+## Runtime Command Mode
+- If `constraints.runtimeCommand` is provided, runtime provider executes command via local shell.
+- Windows: `powershell -Command <runtimeCommand>`
+- Linux: `sh -lc <runtimeCommand>`
 
 ## Local Run
-`ash
+```bash
 docker compose -f infra/docker-compose.yml up -d --build
-`
+```
 
 ## VM Deployment
-See docs/vm-setup.md.
+See `docs/vm-setup.md`.

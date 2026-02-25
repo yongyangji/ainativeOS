@@ -1,6 +1,7 @@
-﻿package com.ainativeos.kernel.execution;
+package com.ainativeos.kernel.execution;
 
 import com.ainativeos.capability.CapabilityRouter;
+import com.ainativeos.config.ExecutionPolicyProperties;
 import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.ExecutionStatus;
 import com.ainativeos.domain.ExecutionTraceEntry;
@@ -26,17 +27,20 @@ public class SemanticExecutionEngine {
     private final PolicyEngine policyEngine;
     private final FailureAnalyzer failureAnalyzer;
     private final RepairPlanner repairPlanner;
+    private final ExecutionPolicyProperties executionPolicy;
 
     public SemanticExecutionEngine(
             CapabilityRouter capabilityRouter,
             PolicyEngine policyEngine,
             FailureAnalyzer failureAnalyzer,
-            RepairPlanner repairPlanner
+            RepairPlanner repairPlanner,
+            ExecutionPolicyProperties executionPolicy
     ) {
         this.capabilityRouter = capabilityRouter;
         this.policyEngine = policyEngine;
         this.failureAnalyzer = failureAnalyzer;
         this.repairPlanner = repairPlanner;
+        this.executionPolicy = executionPolicy;
     }
 
     public GoalExecutionResult run(GoalPlan plan) {
@@ -66,7 +70,9 @@ public class SemanticExecutionEngine {
             );
         }
 
-        int maxRetries = plan.goalSpec().normalizedMaxRetries();
+        int maxRetries = plan.goalSpec().maxRetries() > 0
+                ? plan.goalSpec().maxRetries()
+                : executionPolicy.getDefaultMaxRetries();
 
         for (AtomicOp op : plan.atomicOps()) {
             boolean success = false;
@@ -100,11 +106,13 @@ public class SemanticExecutionEngine {
             }
 
             if (!success) {
-                rollbackExecutedOps(executedOps);
+                if (executionPolicy.isRollbackOnFailure()) {
+                    rollbackExecutedOps(executedOps);
+                }
                 return new GoalExecutionResult(
                         plan.goalSpec().goalId(),
                         ExecutionStatus.FAILED,
-                        "Execution failed after retries and rollback completed",
+                        "Execution failed after retries" + (executionPolicy.isRollbackOnFailure() ? " and rollback completed" : ""),
                         failureObject,
                         trace,
                         Instant.now()

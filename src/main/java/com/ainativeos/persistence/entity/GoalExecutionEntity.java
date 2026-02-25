@@ -1,4 +1,4 @@
-﻿package com.ainativeos.persistence.entity;
+package com.ainativeos.persistence.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,7 +29,7 @@ public class GoalExecutionEntity {
     @Column(name = "summary", nullable = false, length = 1000)
     private String summary;
 
-    @Column(name = "failure_json", length = 8000)
+    @Column(name = "failure_json", columnDefinition = "TEXT")
     private String failureJson;
 
     @Column(name = "planner_version", nullable = false, length = 128)

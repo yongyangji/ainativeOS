@@ -1,4 +1,4 @@
-﻿package com.ainativeos.kernel.policy;
+package com.ainativeos.kernel.policy;
 
 public record PolicyDecision(
         boolean allowed,

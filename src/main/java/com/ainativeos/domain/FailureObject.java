@@ -1,4 +1,4 @@
-﻿package com.ainativeos.domain;
+package com.ainativeos.domain;
 
 import java.util.List;
 import java.util.Map;

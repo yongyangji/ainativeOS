@@ -1,5 +1,6 @@
-﻿package com.ainativeos.kernel.planner;
+package com.ainativeos.kernel.planner;
 
+import com.ainativeos.config.ExecutionPolicyProperties;
 import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.DesiredState;
 import com.ainativeos.domain.GoalPlan;
@@ -14,6 +15,12 @@ import java.util.Map;
 @Component
 public class DefaultGoalPlanner implements GoalPlanner {
 
+    private final ExecutionPolicyProperties executionPolicy;
+
+    public DefaultGoalPlanner(ExecutionPolicyProperties executionPolicy) {
+        this.executionPolicy = executionPolicy;
+    }
+
     @Override
     public GoalPlan plan(GoalSpec goalSpec) {
         Map<String, Object> resources = new HashMap<>();
@@ -22,6 +29,7 @@ public class DefaultGoalPlanner implements GoalPlanner {
         resources.put("targetIntent", goalSpec.naturalLanguageIntent());
         DesiredState desiredState = new DesiredState("state-" + goalSpec.goalId(), "Converge declared runtime state", resources);
 
+        int defaultTimeout = executionPolicy.getDefaultOpTimeoutSeconds();
         List<AtomicOp> ops = new ArrayList<>();
         ops.add(new AtomicOp("op-parse", "COMPUTE_PARSE_INTENT", "Parse natural language goal into executable graph", Map.of(
                 "intent", goalSpec.naturalLanguageIntent()
@@ -33,21 +41,23 @@ public class DefaultGoalPlanner implements GoalPlanner {
                 "constraints", goalSpec.constraints() == null ? Map.of() : goalSpec.constraints()
         ), true, false, 20));
 
-        if (goalSpec.constraints() != null && "true".equalsIgnoreCase(goalSpec.constraints().getOrDefault("simulateFailure", "false"))) {
-            ops.add(new AtomicOp("op-apply", "RUNTIME_APPLY_DECLARATIVE_STATE", "Apply desired state to runtime substrate", Map.of(
-                    "state", desiredState,
-                    "simulateFailure", true
-            ), true, true, 60));
-        } else {
-            ops.add(new AtomicOp("op-apply", "RUNTIME_APPLY_DECLARATIVE_STATE", "Apply desired state to runtime substrate", Map.of(
-                    "state", desiredState
-            ), true, true, 60));
+        Map<String, Object> runtimeParams = new HashMap<>();
+        runtimeParams.put("state", desiredState);
+        if (goalSpec.constraints() != null) {
+            if ("true".equalsIgnoreCase(goalSpec.constraints().getOrDefault("simulateFailure", "false"))) {
+                runtimeParams.put("simulateFailure", true);
+            }
+            if (goalSpec.constraints().containsKey("runtimeCommand")) {
+                runtimeParams.put("command", goalSpec.constraints().get("runtimeCommand"));
+            }
         }
+
+        ops.add(new AtomicOp("op-apply", "RUNTIME_APPLY_DECLARATIVE_STATE", "Apply desired state to runtime substrate", runtimeParams, true, true, defaultTimeout));
 
         ops.add(new AtomicOp("op-verify", "COMPUTE_VERIFY_SUCCESS", "Evaluate success criteria", Map.of(
                 "criteria", goalSpec.successCriteria()
         ), true, false, 20));
 
-        return new GoalPlan(goalSpec, desiredState, ops, "planner-v1");
+        return new GoalPlan(goalSpec, desiredState, ops, "planner-v2");
     }
 }

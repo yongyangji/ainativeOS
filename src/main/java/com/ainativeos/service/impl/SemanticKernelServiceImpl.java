@@ -1,4 +1,4 @@
-﻿package com.ainativeos.service.impl;
+package com.ainativeos.service.impl;
 
 import com.ainativeos.domain.ExecutionTraceEntry;
 import com.ainativeos.domain.GoalExecutionResult;

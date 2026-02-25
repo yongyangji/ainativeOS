@@ -1,4 +1,4 @@
-﻿package com.ainativeos;
+package com.ainativeos;
 
 import org.junit.jupiter.api.Test;
 

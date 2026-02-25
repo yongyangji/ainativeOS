@@ -1,4 +1,4 @@
-﻿package com.ainativeos.common;
+package com.ainativeos.common;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

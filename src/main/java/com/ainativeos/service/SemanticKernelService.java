@@ -1,4 +1,4 @@
-﻿package com.ainativeos.service;
+package com.ainativeos.service;
 
 import com.ainativeos.domain.GoalExecutionResult;
 import com.ainativeos.domain.GoalPlan;

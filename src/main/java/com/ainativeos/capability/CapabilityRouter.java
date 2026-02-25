@@ -1,4 +1,4 @@
-﻿package com.ainativeos.capability;
+package com.ainativeos.capability;
 
 import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.OpExecutionResult;
