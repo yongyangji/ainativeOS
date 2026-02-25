@@ -40,9 +40,12 @@ curl -s http://127.0.0.1:8080/api/goals/health
 ```json
 {
   "service": "ainativeos-control-plane",
+  "status": "UP",
+  "database": "ready",
   "semanticKernel": "ready",
   "capabilityFabric": "ready",
-  "selfHealingVfs": "ready"
+  "selfHealingVfs": "ready",
+  "timestamp": "2026-02-25T05:10:00Z"
 }
 ```
 

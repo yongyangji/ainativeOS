@@ -5,6 +5,7 @@ import com.ainativeos.api.dto.TraceEventResponse;
 import com.ainativeos.domain.GoalExecutionResult;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
+import com.ainativeos.health.HealthCheckService;
 import com.ainativeos.persistence.entity.GoalExecutionEntity;
 import com.ainativeos.persistence.entity.GoalTraceEntity;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
@@ -29,15 +30,18 @@ public class GoalController {
     private final SemanticKernelService semanticKernelService;
     private final GoalExecutionRepository goalExecutionRepository;
     private final GoalTraceRepository goalTraceRepository;
+    private final HealthCheckService healthCheckService;
 
     public GoalController(
             SemanticKernelService semanticKernelService,
             GoalExecutionRepository goalExecutionRepository,
-            GoalTraceRepository goalTraceRepository
+            GoalTraceRepository goalTraceRepository,
+            HealthCheckService healthCheckService
     ) {
         this.semanticKernelService = semanticKernelService;
         this.goalExecutionRepository = goalExecutionRepository;
         this.goalTraceRepository = goalTraceRepository;
+        this.healthCheckService = healthCheckService;
     }
 
     @PostMapping("/plan")
@@ -85,11 +89,6 @@ public class GoalController {
 
     @GetMapping("/health")
     public Map<String, Object> health() {
-        return Map.of(
-                "service", "ainativeos-control-plane",
-                "semanticKernel", "ready",
-                "capabilityFabric", "ready",
-                "selfHealingVfs", "ready"
-        );
+        return healthCheckService.check();
     }
 }
