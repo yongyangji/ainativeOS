@@ -11,6 +11,7 @@ public record GoalPlan(
         GoalSpec goalSpec,
         DesiredState desiredState,
         List<AtomicOp> atomicOps,
-        String plannerVersion
+        String plannerVersion,
+        boolean llmUsed
 ) {
 }

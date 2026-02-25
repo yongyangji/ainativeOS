@@ -51,6 +51,8 @@ public class DefaultGoalPlanner implements GoalPlanner {
         Map<String, Object> runtimeParams = new HashMap<>();
         runtimeParams.put("state", desiredState);
         runtimeParams.put("planningWarnings", blueprint.warnings());
+        runtimeParams.put("llmUsed", blueprint.llmUsed());
+        runtimeParams.put("llmRationale", blueprint.llmRationale());
         if (goalSpec.constraints() != null) {
             if ("true".equalsIgnoreCase(goalSpec.constraints().getOrDefault("simulateFailure", "false"))) {
                 runtimeParams.put("simulateFailure", true);
@@ -100,6 +102,6 @@ public class DefaultGoalPlanner implements GoalPlanner {
                 "criteria", goalSpec.successCriteria()
         ), true, false, 20));
 
-        return new GoalPlan(goalSpec, desiredState, ops, "planner-v3");
+        return new GoalPlan(goalSpec, desiredState, ops, "planner-v3", blueprint.llmUsed());
     }
 }

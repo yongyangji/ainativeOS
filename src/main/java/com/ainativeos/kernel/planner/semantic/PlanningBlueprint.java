@@ -9,7 +9,8 @@ import java.util.List;
  */
 public record PlanningBlueprint(
         List<AtomicOp> preRuntimeOps,
-        List<String> warnings
+        List<String> warnings,
+        boolean llmUsed,
+        String llmRationale
 ) {
 }
-

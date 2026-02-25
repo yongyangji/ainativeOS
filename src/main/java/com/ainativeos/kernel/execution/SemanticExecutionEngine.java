@@ -79,6 +79,7 @@ public class SemanticExecutionEngine {
                     plan.goalSpec().goalId(),
                     ExecutionStatus.BLOCKED,
                     decision.reason(),
+                    plan.llmUsed(),
                     null,
                     trace,
                     Instant.now()
@@ -158,6 +159,7 @@ public class SemanticExecutionEngine {
                         plan.goalSpec().goalId(),
                         ExecutionStatus.FAILED,
                         "Execution failed after retries" + (executionPolicy.isRollbackOnFailure() ? " and rollback completed" : ""),
+                        plan.llmUsed(),
                         failureObject,
                         trace,
                         Instant.now()
@@ -169,6 +171,7 @@ public class SemanticExecutionEngine {
                 plan.goalSpec().goalId(),
                 ExecutionStatus.SUCCEEDED,
                 "Goal converged to desired state",
+                plan.llmUsed(),
                 null,
                 trace,
                 Instant.now()

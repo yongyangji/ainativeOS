@@ -38,7 +38,8 @@ public class SemanticPlanningEngine {
     }
 
     public PlanningBlueprint build(GoalSpec goalSpec, int defaultTimeoutSeconds) {
-        ParsedIntent parsedIntent = mergeLlmHints(goalSpec, intentParser.parse(goalSpec));
+        LlmMergeResult mergeResult = mergeLlmHints(goalSpec, intentParser.parse(goalSpec));
+        ParsedIntent parsedIntent = mergeResult.parsedIntent();
         PlanGraph graph = planGraphBuilder.build(goalSpec, parsedIntent);
         List<String> warnings = planVerifier.verify(goalSpec, graph);
 
@@ -59,13 +60,13 @@ public class SemanticPlanningEngine {
                     defaultTimeoutSeconds
             ));
         }
-        return new PlanningBlueprint(ops, warnings);
+        return new PlanningBlueprint(ops, warnings, mergeResult.llmUsed(), mergeResult.llmRationale());
     }
 
-    private ParsedIntent mergeLlmHints(GoalSpec goalSpec, ParsedIntent parsedIntent) {
+    private LlmMergeResult mergeLlmHints(GoalSpec goalSpec, ParsedIntent parsedIntent) {
         Optional<LlmPlanHints> llmHintsOpt = semanticReasoner.reason(goalSpec);
         if (llmHintsOpt.isEmpty()) {
-            return parsedIntent;
+            return new LlmMergeResult(parsedIntent, false, "");
         }
 
         LlmPlanHints llmHints = llmHintsOpt.get();
@@ -78,11 +79,19 @@ public class SemanticPlanningEngine {
                 mergedActions.add(action);
             }
         }
-        return new ParsedIntent(
+        ParsedIntent merged = new ParsedIntent(
                 parsedIntent.goalId(),
                 parsedIntent.normalizedIntent(),
                 mergedActions,
                 mergedConstraints
         );
+        return new LlmMergeResult(merged, true, llmHints.rationale());
+    }
+
+    private record LlmMergeResult(
+            ParsedIntent parsedIntent,
+            boolean llmUsed,
+            String llmRationale
+    ) {
     }
 }

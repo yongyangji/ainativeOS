@@ -12,6 +12,7 @@ public record GoalExecutionResult(
         String goalId,
         ExecutionStatus status,
         String message,
+        boolean llmUsed,
         FailureObject failureObject,
         List<ExecutionTraceEntry> trace,
         Instant completedAt
