@@ -8,6 +8,7 @@ public record AtomicOp(
         String description,
         Map<String, Object> parameters,
         boolean idempotent,
-        boolean rollbackSupported
+        boolean rollbackSupported,
+        int timeoutSeconds
 ) {
 }

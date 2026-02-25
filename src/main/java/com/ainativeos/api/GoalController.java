@@ -5,6 +5,7 @@ import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
 import com.ainativeos.service.SemanticKernelService;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,11 +34,13 @@ public class GoalController {
         return semanticKernelService.execute(plan);
     }
 
-    @PostMapping("/health")
+    @GetMapping("/health")
     public Map<String, Object> health() {
         return Map.of(
                 "service", "ainativeos-control-plane",
-                "semanticKernel", "ready"
+                "semanticKernel", "ready",
+                "capabilityFabric", "ready",
+                "selfHealingVfs", "ready"
         );
     }
 }

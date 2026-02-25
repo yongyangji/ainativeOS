@@ -4,7 +4,7 @@ public record ErrorVector(
         String category,
         String code,
         String failingStage,
-        String recoverability,
+        Recoverability recoverability,
         double confidence,
         String recommendation
 ) {

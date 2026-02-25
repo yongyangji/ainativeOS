@@ -1,31 +1,52 @@
-﻿# AI-Native OS (Java Control Plane)
+﻿# AI-Native OS (Java + MySQL)
 
-## Architecture Mapping
-- Semantic Kernel: `SemanticKernelService` + planner/executor APIs.
-- Unified Abstraction: represented as atomic operations and capability resolution stage.
-- Self-healing VFS contract: `FailureObject`, `ContextFrame`, `ErrorVector` domain models.
-- Stateless Runtime: `DesiredState` object and declarative execution stage.
+AI-Native unified operating model with:
+- Semantic Kernel for goal-driven orchestration
+- Unified capability abstraction (FILE_*, NETWORK_*, COMPUTE_*, RUNTIME_*)
+- Self-healing VFS contract (FailureObject + ContextStack + ErrorVector)
+- Stateless runtime intent (DesiredState declarative model)
 
-## Run Locally
-1. Start MySQL:
-   - `docker compose -f infra/docker-compose.yml up -d`
-2. Start service:
-   - `mvn spring-boot:run`
+## Stack
+- Java 21
+- Spring Boot 3.3.x
+- MySQL 8.4
+- Docker / Docker Compose
 
-## Test API
-- Plan goal:
-`POST /api/goals/plan`
-```json
+## Main Modules
+- Planner: kernel/planner/DefaultGoalPlanner
+- Policy Gate: kernel/policy/SimplePolicyEngine
+- Execution State Machine: kernel/execution/SemanticExecutionEngine
+- Capability Fabric: capability/CapabilityRouter + providers
+- Self-healing: kernel/healing/FailureAnalyzer + RepairPlanner
+- Persistence: goal_execution + goal_trace
+
+## API
+- POST /api/goals/plan
+- POST /api/goals/execute
+- GET /api/goals/health
+
+### Sample Execute Request
+`json
 {
-  "goalId": "goal-001",
-  "naturalLanguageIntent": "Install and verify mysql client in sandbox runtime",
+  "goalId": "goal-1001",
+  "naturalLanguageIntent": "Install mysql client and verify in immutable runtime",
   "successCriteria": ["client_installed", "smoke_test_passed"],
   "constraints": {
     "cost": "low",
-    "security": "high"
-  }
+    "security": "high",
+    "simulateFailure": "true"
+  },
+  "maxRetries": 2,
+  "policyProfile": "default"
 }
-```
+`
 
-## VM Deployment Notes (172.23.115.116)
-- See `docs/vm-setup.md` for Docker + MySQL setup and app run instructions.
+With simulateFailure=true, runtime op fails once, then self-healing patch removes failure flag and retries.
+
+## Local Run
+`ash
+docker compose -f infra/docker-compose.yml up -d --build
+`
+
+## VM Deployment
+See docs/vm-setup.md.

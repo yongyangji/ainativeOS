@@ -1,22 +1,29 @@
-﻿# AI-Native OS Technical Architecture (Java + MySQL)
+﻿# AI-Native OS Technical Architecture
 
-## Control Plane
-- Java 21 + Spring Boot 3
-- REST endpoints for Goal planning and execution
-- Semantic Kernel service orchestrates GoalSpec -> AtomicOp pipeline
+## 1. Semantic Kernel (Goal-Driven)
+- Input: natural language GoalSpec
+- Planner: build GoalPlan with ordered AtomicOp graph
+- Executor: deterministic state machine with retry, repair, rollback
 
-## Unified Abstraction
-- Resources are represented by capability-oriented atomic operations
-- Provider mapping stage is part of execution plan, independent from OS or cloud vendor
+## 2. Unified Abstraction Layer
+- Capability router dispatches op types to providers
+- Providers are API-first and platform-agnostic
+- Current providers: File, Network, Compute, Runtime
 
-## Self-healing VFS Contract
-- Structured failure object includes context stack and error vectors
-- Failure object is machine-readable and designed for automatic retry policy
+## 3. Self-healing VFS Contract
+- Failures return structured FailureObject
+- Includes ContextStack, ErrorVector, patch hints, retry token
+- Repair planner mutates op in-memory and retries
 
-## Stateless Runtime Direction
-- DesiredState object declares target runtime state
-- Current MVP keeps runtime declarative model in domain layer, ready for WASM/container adapters
+## 4. Stateless Runtime Model
+- Desired end-state represented by DesiredState
+- Runtime apply modeled as RUNTIME_APPLY_DECLARATIVE_STATE
+- Works with immutable runtime assumption (WASM/container substrate)
 
-## Data Layer
-- MySQL 8.4
-- `goal_execution` persistence for execution records
+## 5. Persistence
+- goal_execution: goal outcome and failure JSON snapshot
+- goal_trace: per-op execution events for replay/audit
+
+## 6. Governance
+- Policy engine gates execution before side effects
+- Strict profile can block high-risk requests

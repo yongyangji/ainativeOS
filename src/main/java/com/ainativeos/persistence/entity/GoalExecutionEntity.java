@@ -29,6 +29,12 @@ public class GoalExecutionEntity {
     @Column(name = "summary", nullable = false, length = 1000)
     private String summary;
 
+    @Column(name = "failure_json", length = 8000)
+    private String failureJson;
+
+    @Column(name = "planner_version", nullable = false, length = 128)
+    private String plannerVersion;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -66,6 +72,22 @@ public class GoalExecutionEntity {
 
     public void setSummary(String summary) {
         this.summary = summary;
+    }
+
+    public String getFailureJson() {
+        return failureJson;
+    }
+
+    public void setFailureJson(String failureJson) {
+        this.failureJson = failureJson;
+    }
+
+    public String getPlannerVersion() {
+        return plannerVersion;
+    }
+
+    public void setPlannerVersion(String plannerVersion) {
+        this.plannerVersion = plannerVersion;
     }
 
     public Instant getCreatedAt() {

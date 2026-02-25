@@ -1,38 +1,29 @@
-﻿# VM setup for 172.23.115.116
+﻿# VM setup for 172.23.115.116 (user: jiyongyang)
 
-## 1) Install Docker on Ubuntu/Debian VM
-```bash
-apt-get update
-apt-get install -y ca-certificates curl gnupg
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-chmod a+r /etc/apt/keyrings/docker.asc
+## 1) SSH login
+`ash
+ssh jiyongyang@172.23.115.116
+# password: 123456
+`
 
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-systemctl enable docker
-systemctl start docker
-```
+## 2) Install Docker (with sudo)
+`ash
+sudo -S bash infra/vm-bootstrap.sh
+# sudo password: 123456
+`
 
-## 2) Start MySQL dependency
-```bash
-docker compose -f infra/docker-compose.yml up -d
-```
+## 3) Start dependencies and app
+`ash
+cd /path/to/ainativeOS
+sudo -S docker compose -f infra/docker-compose.yml up -d --build
+`
 
-## 3) Run application
-```bash
-export DB_HOST=127.0.0.1
-export DB_PORT=3306
-export DB_NAME=ainativeos
-export DB_USER=ainativeos
-export DB_PASSWORD=ainativeos_pwd
-mvn spring-boot:run
-```
+## 4) Validate
+`ash
+curl http://127.0.0.1:8080/api/goals/health
+`
 
-## 4) Quick validation
-```bash
-curl -X POST http://127.0.0.1:8080/api/goals/health
-```
+## Notes
+- MySQL exposed on 3306
+- Control Plane exposed on 8080
+- If firewall enabled, open 8080/3306 as needed

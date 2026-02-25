@@ -5,6 +5,7 @@ import java.util.List;
 public record GoalPlan(
         GoalSpec goalSpec,
         DesiredState desiredState,
-        List<AtomicOp> atomicOps
+        List<AtomicOp> atomicOps,
+        String plannerVersion
 ) {
 }
