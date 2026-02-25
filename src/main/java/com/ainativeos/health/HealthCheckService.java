@@ -4,6 +4,7 @@ import com.ainativeos.capability.CapabilityProvider;
 import com.ainativeos.kernel.execution.SemanticExecutionEngine;
 import com.ainativeos.kernel.healing.FailureAnalyzer;
 import com.ainativeos.kernel.healing.RepairPlanner;
+import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.kernel.planner.GoalPlanner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class HealthCheckService {
     private final List<CapabilityProvider> capabilityProviders;
     private final FailureAnalyzer failureAnalyzer;
     private final RepairPlanner repairPlanner;
+    private final DesiredStateJobRepository desiredStateJobRepository;
 
     public HealthCheckService(
             JdbcTemplate jdbcTemplate,
@@ -38,7 +40,8 @@ public class HealthCheckService {
             SemanticExecutionEngine executionEngine,
             List<CapabilityProvider> capabilityProviders,
             FailureAnalyzer failureAnalyzer,
-            RepairPlanner repairPlanner
+            RepairPlanner repairPlanner,
+            DesiredStateJobRepository desiredStateJobRepository
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.goalPlanner = goalPlanner;
@@ -46,6 +49,7 @@ public class HealthCheckService {
         this.capabilityProviders = capabilityProviders;
         this.failureAnalyzer = failureAnalyzer;
         this.repairPlanner = repairPlanner;
+        this.desiredStateJobRepository = desiredStateJobRepository;
     }
 
     public Map<String, Object> check() {
@@ -58,17 +62,20 @@ public class HealthCheckService {
         String semanticKernelStatus = checkSemanticKernel();
         String capabilityFabricStatus = checkCapabilityFabric();
         String selfHealingStatus = checkSelfHealing();
+        String reconcileControllerStatus = checkReconcileController();
 
         response.put("database", dbStatus);
         response.put("semanticKernel", semanticKernelStatus);
         response.put("capabilityFabric", capabilityFabricStatus);
         response.put("selfHealingVfs", selfHealingStatus);
+        response.put("reconcileController", reconcileControllerStatus);
 
         // 总体状态：全部 ready 为 UP，否则标记为 DEGRADED
         boolean healthy = "ready".equals(dbStatus)
                 && "ready".equals(semanticKernelStatus)
                 && "ready".equals(capabilityFabricStatus)
-                && "ready".equals(selfHealingStatus);
+                && "ready".equals(selfHealingStatus)
+                && "ready".equals(reconcileControllerStatus);
         response.put("status", healthy ? "UP" : "DEGRADED");
         return response;
     }
@@ -98,5 +105,9 @@ public class HealthCheckService {
     private String checkSelfHealing() {
         // 失败分析 + 修复规划都存在，才说明自愈链路完整
         return failureAnalyzer != null && repairPlanner != null ? "ready" : "degraded";
+    }
+
+    private String checkReconcileController() {
+        return desiredStateJobRepository != null ? "ready" : "degraded";
     }
 }

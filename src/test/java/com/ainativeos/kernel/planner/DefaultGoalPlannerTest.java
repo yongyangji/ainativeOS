@@ -3,6 +3,7 @@ package com.ainativeos.kernel.planner;
 import com.ainativeos.config.ExecutionPolicyProperties;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
+import com.ainativeos.llm.SemanticReasoner;
 import com.ainativeos.kernel.planner.semantic.DefaultPlanVerifier;
 import com.ainativeos.kernel.planner.semantic.HeuristicPlanGraphBuilder;
 import com.ainativeos.kernel.planner.semantic.RuleBasedIntentParser;
@@ -23,7 +24,8 @@ class DefaultGoalPlannerTest {
         SemanticPlanningEngine planningEngine = new SemanticPlanningEngine(
                 new RuleBasedIntentParser(),
                 new HeuristicPlanGraphBuilder(),
-                new DefaultPlanVerifier()
+                new DefaultPlanVerifier(),
+                (SemanticReasoner) goalSpec -> java.util.Optional.empty()
         );
         DefaultGoalPlanner planner = new DefaultGoalPlanner(policy, planningEngine);
 

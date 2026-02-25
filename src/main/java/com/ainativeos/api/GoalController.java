@@ -6,8 +6,10 @@ import com.ainativeos.domain.GoalExecutionResult;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
 import com.ainativeos.health.HealthCheckService;
+import com.ainativeos.persistence.entity.DesiredStateJobEntity;
 import com.ainativeos.persistence.entity.GoalExecutionEntity;
 import com.ainativeos.persistence.entity.GoalTraceEntity;
+import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
 import com.ainativeos.service.SemanticKernelService;
@@ -40,17 +42,20 @@ public class GoalController {
     private final SemanticKernelService semanticKernelService;
     private final GoalExecutionRepository goalExecutionRepository;
     private final GoalTraceRepository goalTraceRepository;
+    private final DesiredStateJobRepository desiredStateJobRepository;
     private final HealthCheckService healthCheckService;
 
     public GoalController(
             SemanticKernelService semanticKernelService,
             GoalExecutionRepository goalExecutionRepository,
             GoalTraceRepository goalTraceRepository,
+            DesiredStateJobRepository desiredStateJobRepository,
             HealthCheckService healthCheckService
     ) {
         this.semanticKernelService = semanticKernelService;
         this.goalExecutionRepository = goalExecutionRepository;
         this.goalTraceRepository = goalTraceRepository;
+        this.desiredStateJobRepository = desiredStateJobRepository;
         this.healthCheckService = healthCheckService;
     }
 
@@ -120,6 +125,28 @@ public class GoalController {
                 it.getMessage(),
                 it.getAttempt(),
                 it.getTimestamp()
+        )).toList();
+    }
+
+    @GetMapping("/reconcile-jobs")
+    /**
+     * 查询后台持续收敛任务。
+     *
+     * @param goalId 可选；按目标过滤
+     * @return 任务摘要列表
+     */
+    public List<Map<String, Object>> reconcileJobs(@RequestParam(required = false) String goalId) {
+        List<DesiredStateJobEntity> jobs = (goalId == null || goalId.isBlank())
+                ? desiredStateJobRepository.findTop100ByOrderByUpdatedAtDesc()
+                : desiredStateJobRepository.findTop100ByGoalIdOrderByUpdatedAtDesc(goalId);
+        return jobs.stream().map(job -> Map.<String, Object>of(
+                "id", job.getId(),
+                "goalId", job.getGoalId(),
+                "status", job.getStatus(),
+                "failCount", job.getFailCount(),
+                "lastMessage", job.getLastMessage() == null ? "" : job.getLastMessage(),
+                "nextRunAt", job.getNextRunAt(),
+                "updatedAt", job.getUpdatedAt()
         )).toList();
     }
 

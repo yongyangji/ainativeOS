@@ -1,5 +1,6 @@
 package com.ainativeos.kernel.execution;
 
+import com.ainativeos.audit.OperationAuditService;
 import com.ainativeos.capability.CapabilityRouter;
 import com.ainativeos.config.ExecutionPolicyProperties;
 import com.ainativeos.domain.AtomicOp;
@@ -38,19 +39,22 @@ public class SemanticExecutionEngine {
     private final FailureAnalyzer failureAnalyzer;
     private final RepairPlanner repairPlanner;
     private final ExecutionPolicyProperties executionPolicy;
+    private final OperationAuditService operationAuditService;
 
     public SemanticExecutionEngine(
             CapabilityRouter capabilityRouter,
             PolicyEngine policyEngine,
             FailureAnalyzer failureAnalyzer,
             RepairPlanner repairPlanner,
-            ExecutionPolicyProperties executionPolicy
+            ExecutionPolicyProperties executionPolicy,
+            OperationAuditService operationAuditService
     ) {
         this.capabilityRouter = capabilityRouter;
         this.policyEngine = policyEngine;
         this.failureAnalyzer = failureAnalyzer;
         this.repairPlanner = repairPlanner;
         this.executionPolicy = executionPolicy;
+        this.operationAuditService = operationAuditService;
     }
 
     public GoalExecutionResult run(GoalPlan plan) {
@@ -88,6 +92,21 @@ public class SemanticExecutionEngine {
 
         // 按规划顺序逐步执行原子操作
         for (AtomicOp op : plan.atomicOps()) {
+            if (operationAuditService.shouldShortCircuit(plan.goalSpec().goalId(), op)) {
+                trace.add(new ExecutionTraceEntry(
+                        plan.goalSpec().goalId(),
+                        op.opId(),
+                        op.type(),
+                        "audit-short-circuit",
+                        ExecutionStatus.SUCCEEDED,
+                        "Short-circuited by idempotency audit",
+                        Instant.now(),
+                        0,
+                        List.of()
+                ));
+                continue;
+            }
+
             boolean success = false;
             AtomicOp currentOp = op;
             FailureObject failureObject = null;
@@ -106,6 +125,14 @@ public class SemanticExecutionEngine {
                         attempt,
                         opResult.contextFrames()
                 ));
+                operationAuditService.record(
+                        plan.goalSpec().goalId(),
+                        currentOp,
+                        opResult.success() ? "SUCCEEDED" : "FAILED",
+                        opResult.provider(),
+                        attempt,
+                        opResult.message()
+                );
 
                 if (opResult.success()) {
                     // 当前步骤成功，进入下一步骤

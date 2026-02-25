@@ -6,9 +6,8 @@ import com.ainativeos.domain.ContextFrame;
 import com.ainativeos.domain.OpExecutionResult;
 import com.ainativeos.runtime.CommandExecutionResult;
 import com.ainativeos.runtime.DesiredStateReconciler;
-import com.ainativeos.runtime.LocalCommandExecutor;
 import com.ainativeos.runtime.ReconcileResult;
-import com.ainativeos.runtime.SshCommandExecutor;
+import com.ainativeos.runtime.RuntimeCommandDispatcher;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -27,17 +26,14 @@ import java.util.Map;
  */
 public class RuntimeCapabilityProvider implements CapabilityProvider {
 
-    private final LocalCommandExecutor localCommandExecutor;
-    private final SshCommandExecutor sshCommandExecutor;
+    private final RuntimeCommandDispatcher runtimeCommandDispatcher;
     private final DesiredStateReconciler desiredStateReconciler;
 
     public RuntimeCapabilityProvider(
-            LocalCommandExecutor localCommandExecutor,
-            SshCommandExecutor sshCommandExecutor,
+            RuntimeCommandDispatcher runtimeCommandDispatcher,
             DesiredStateReconciler desiredStateReconciler
     ) {
-        this.localCommandExecutor = localCommandExecutor;
-        this.sshCommandExecutor = sshCommandExecutor;
+        this.runtimeCommandDispatcher = runtimeCommandDispatcher;
         this.desiredStateReconciler = desiredStateReconciler;
     }
 
@@ -173,58 +169,8 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
         // no-op in current MVP; runtime rollback hook is reserved
     }
 
-    private List<String> buildShellCommand(String cmd) {
-        String os = System.getProperty("os.name", "").toLowerCase();
-        if (os.contains("win")) {
-            return List.of("powershell", "-Command", cmd);
-        }
-        return List.of("sh", "-lc", cmd);
-    }
-
     private CommandExecutionResult executeCommand(AtomicOp atomicOp, String command) {
-        String remoteHost = value(atomicOp, "remoteHost");
-        String remoteUser = value(atomicOp, "remoteUser");
-        String privateKeyBase64 = value(atomicOp, "remotePrivateKeyBase64");
-        String privateKey = value(atomicOp, "remotePrivateKey");
-        String passphrase = value(atomicOp, "remotePassphrase");
-        int port = parseIntOrDefault(value(atomicOp, "remotePort"), 22);
-        // 认证优先级：Key(Base64) > Key(PEM) > Password
-        if (remoteHost != null && remoteUser != null && privateKeyBase64 != null) {
-            return sshCommandExecutor.executeWithKeyBase64(
-                    remoteHost,
-                    port,
-                    remoteUser,
-                    privateKeyBase64,
-                    passphrase,
-                    command,
-                    atomicOp.timeoutSeconds()
-            );
-        }
-        if (remoteHost != null && remoteUser != null && privateKey != null) {
-            return sshCommandExecutor.executeWithKey(
-                    remoteHost,
-                    port,
-                    remoteUser,
-                    privateKey,
-                    passphrase,
-                    command,
-                    atomicOp.timeoutSeconds()
-            );
-        }
-        String remotePassword = value(atomicOp, "remotePassword");
-        if (remoteHost != null && remoteUser != null && remotePassword != null) {
-            return sshCommandExecutor.execute(
-                    remoteHost,
-                    port,
-                    remoteUser,
-                    remotePassword,
-                    command,
-                    atomicOp.timeoutSeconds()
-            );
-        }
-        List<String> shellCommand = buildShellCommand(command);
-        // 未提供远程信息则默认走本地执行
-        return localCommandExecutor.execute(shellCommand, atomicOp.timeoutSeconds());
+        return runtimeCommandDispatcher.execute(atomicOp.parameters(), command, atomicOp.timeoutSeconds());
     }
 
     private String targetFingerprint(AtomicOp atomicOp) {

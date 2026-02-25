@@ -10,6 +10,7 @@ import com.ainativeos.persistence.entity.GoalExecutionEntity;
 import com.ainativeos.persistence.entity.GoalTraceEntity;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
+import com.ainativeos.reconcile.DesiredStateJobService;
 import com.ainativeos.service.SemanticKernelService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,6 +34,7 @@ public class SemanticKernelServiceImpl implements SemanticKernelService {
     private final SemanticExecutionEngine executionEngine;
     private final GoalExecutionRepository goalExecutionRepository;
     private final GoalTraceRepository goalTraceRepository;
+    private final DesiredStateJobService desiredStateJobService;
     private final ObjectMapper objectMapper;
 
     public SemanticKernelServiceImpl(
@@ -40,12 +42,14 @@ public class SemanticKernelServiceImpl implements SemanticKernelService {
             SemanticExecutionEngine executionEngine,
             GoalExecutionRepository goalExecutionRepository,
             GoalTraceRepository goalTraceRepository,
+            DesiredStateJobService desiredStateJobService,
             ObjectMapper objectMapper
     ) {
         this.goalPlanner = goalPlanner;
         this.executionEngine = executionEngine;
         this.goalExecutionRepository = goalExecutionRepository;
         this.goalTraceRepository = goalTraceRepository;
+        this.desiredStateJobService = desiredStateJobService;
         this.objectMapper = objectMapper;
     }
 
@@ -84,6 +88,10 @@ public class SemanticKernelServiceImpl implements SemanticKernelService {
             trace.setAttempt(entry.attempt());
             trace.setTimestamp(entry.timestamp());
             goalTraceRepository.save(trace);
+        }
+
+        if ("SUCCEEDED".equals(result.status().name())) {
+            desiredStateJobService.createContinuousJobIfNeeded(plan);
         }
 
         return result;

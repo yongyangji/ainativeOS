@@ -15,6 +15,7 @@ AI-Native 统一操作模型，核心能力包括：
 ## 核心模块
 - 规划器：`kernel/planner/DefaultGoalPlanner`
 - 语义规划引擎：`kernel/planner/semantic/*`（意图解析、计划图、验证器）
+- LLM 语义推理器：`llm/OpenAiSemanticReasoner`（可选，失败自动回退规则引擎）
 - 策略门控：`kernel/policy/SimplePolicyEngine`
 - 执行状态机：`kernel/execution/SemanticExecutionEngine`
 - 能力总线：`capability/CapabilityRouter` + Providers
@@ -28,6 +29,7 @@ AI-Native 统一操作模型，核心能力包括：
 - `POST /api/goals/execute`
 - `GET /api/goals/executions?goalId=...`
 - `GET /api/goals/{goalId}/trace`
+- `GET /api/goals/reconcile-jobs?goalId=...`
 - `GET /api/goals/health`
 
 ## 接口示例
@@ -47,6 +49,7 @@ curl -s http://127.0.0.1:8080/api/goals/health
   "semanticKernel": "ready",
   "capabilityFabric": "ready",
   "selfHealingVfs": "ready",
+  "reconcileController": "ready",
   "timestamp": "2026-02-25T05:10:00Z"
 }
 ```
@@ -231,6 +234,27 @@ curl -s "http://127.0.0.1:8080/api/goals/goal-exec-ssh-key-001/trace"
 ]
 ```
 
+### 8）查询持续收敛任务
+请求：
+```bash
+curl -s "http://127.0.0.1:8080/api/goals/reconcile-jobs?goalId=goal-continuous-001"
+```
+
+响应示例：
+```json
+[
+  {
+    "id": 1,
+    "goalId": "goal-continuous-001",
+    "status": "ACTIVE",
+    "failCount": 0,
+    "lastMessage": "continuous reconcile job created",
+    "nextRunAt": "2026-02-25T07:52:09.774996Z",
+    "updatedAt": "2026-02-25T07:52:09.774999Z"
+  }
+]
+```
+
 ## 运行模式说明
 
 ### 本地命令模式
@@ -270,6 +294,41 @@ curl -s "http://127.0.0.1:8080/api/goals/goal-exec-ssh-key-001/trace"
   "maxRetries": 2,
   "policyProfile": "default"
 }
+```
+
+### 持续收敛控制器（后台）
+如需由后台控制器持续监控并自动收敛（而非只在请求内执行一次），可增加：
+- `continuousReconcile=true`
+
+示例：
+```json
+{
+  "goalId": "goal-continuous-001",
+  "naturalLanguageIntent": "continuous desired state reconcile",
+  "successCriteria": ["reconcile_ok"],
+  "constraints": {
+    "runtimeCommand": "echo fallback",
+    "continuousReconcile": "true",
+    "reconcileApplyCommand": "echo apply",
+    "reconcileVerifyCommand": "echo verify"
+  },
+  "maxRetries": 2,
+  "policyProfile": "default"
+}
+```
+
+## LLM 配置（可选）
+默认关闭。开启后，规划器会尝试调用 LLM 生成额外动作/约束建议；调用失败会自动回退规则解析。
+
+```yaml
+ainativeos:
+  llm:
+    enabled: true
+    provider: openai
+    endpoint: https://api.openai.com/v1/chat/completions
+    api-key: ${LLM_API_KEY}
+    model: gpt-4o-mini
+    timeout-seconds: 20
 ```
 
 ## 字段字典

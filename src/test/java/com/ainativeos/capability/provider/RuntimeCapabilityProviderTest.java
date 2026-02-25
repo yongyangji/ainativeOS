@@ -4,6 +4,7 @@ import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.OpExecutionResult;
 import com.ainativeos.runtime.DesiredStateReconciler;
 import com.ainativeos.runtime.LocalCommandExecutor;
+import com.ainativeos.runtime.RuntimeCommandDispatcher;
 import com.ainativeos.runtime.SshCommandExecutor;
 import org.junit.jupiter.api.Test;
 
@@ -17,8 +18,7 @@ class RuntimeCapabilityProviderTest {
     @Test
     void shouldFailWhenSimulateFailureEnabled() {
         RuntimeCapabilityProvider provider = new RuntimeCapabilityProvider(
-                new LocalCommandExecutor(),
-                new SshCommandExecutor(),
+                new RuntimeCommandDispatcher(new LocalCommandExecutor(), new SshCommandExecutor()),
                 new DesiredStateReconciler()
         );
         AtomicOp op = new AtomicOp(
@@ -39,8 +39,7 @@ class RuntimeCapabilityProviderTest {
     @Test
     void shouldFailOnInvalidKeyBase64() {
         RuntimeCapabilityProvider provider = new RuntimeCapabilityProvider(
-                new LocalCommandExecutor(),
-                new SshCommandExecutor(),
+                new RuntimeCommandDispatcher(new LocalCommandExecutor(), new SshCommandExecutor()),
                 new DesiredStateReconciler()
         );
         AtomicOp op = new AtomicOp(
