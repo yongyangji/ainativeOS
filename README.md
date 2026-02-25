@@ -12,6 +12,12 @@ AI-Native 统一操作模型，核心能力包括：
 - MySQL 8.4
 - Docker / Docker Compose
 
+## 文档导航
+- 架构设计（中英双语）：`docs/architecture.md`
+- 优化路线图：`docs/roadmap.md`
+- 迭代任务清单：`docs/backlog.md`
+- VM 部署手册：`docs/vm-setup.md`
+
 ## 核心模块
 - 规划器：`kernel/planner/DefaultGoalPlanner`
 - 语义规划引擎：`kernel/planner/semantic/*`（意图解析、计划图、验证器）
@@ -22,7 +28,14 @@ AI-Native 统一操作模型，核心能力包括：
 - 运行时适配器：`runtime/LocalCommandExecutor`、`runtime/SshCommandExecutor`
 - 状态收敛控制器：`runtime/DesiredStateReconciler`
 - 自愈模块：`kernel/healing/FailureAnalyzer` + `RepairPlanner`
-- 持久化：`goal_execution` + `goal_trace`
+- 持久化：`goal_execution`、`goal_trace`、`execution_audit`、`desired_state_job`
+- 前端测试台：`frontend/index.html`（Nginx 反向代理 `/api`）
+
+## 近期更新（已落地）
+- 新增 Docker 前端测试页（`http://<host>:8081`）用于直接调试核心 API。
+- `GoalPlan` 与 `GoalExecutionResult` 新增 `llmUsed` 字段。
+- LLM 调用链路增加诊断日志（未启用、HTTP 非 2xx、解析失败、异常回退）。
+- 架构文档升级为中英双语并新增 roadmap/backlog 文档。
 
 ## API 列表
 - `POST /api/goals/plan`
@@ -336,6 +349,22 @@ ainativeos:
 Docker Compose 场景下，推荐在 `infra/.env` 中配置 `LLM_*`（模板见 `infra/.env.example`）。
 `infra/.env` 已加入 `.gitignore`，不会提交到仓库。
 
+DeepSeek 示例（推荐）：
+```dotenv
+LLM_ENABLED=true
+LLM_PROVIDER=deepseek
+LLM_ENDPOINT=https://api.deepseek.com/chat/completions
+LLM_API_KEY=your-deepseek-api-key
+LLM_MODEL=deepseek-chat
+LLM_TIMEOUT_SECONDS=30
+```
+
+生效验证：
+```bash
+sudo docker compose -f infra/docker-compose.yml up -d --build --force-recreate control-plane
+sudo docker compose -f infra/docker-compose.yml exec control-plane sh -lc 'echo $LLM_ENABLED; echo $LLM_PROVIDER; [ -n "$LLM_API_KEY" ] && echo API_KEY_SET=true || echo API_KEY_SET=false'
+```
+
 ## 字段字典
 
 ### GoalSpec（`/api/goals/plan` 与 `/api/goals/execute` 请求体）
@@ -432,6 +461,32 @@ docker compose -f infra/docker-compose.yml up -d --build
 - `GET /api/goals/executions`
 - `GET /api/goals/{goalId}/trace`
 - `GET /api/goals/reconcile-jobs`
+
+## 常见问题排障
+
+### 1）`llmUsed=false` 是否代表代码未生效？
+不一定。`llmUsed=false` 还可能由以下原因导致：
+- `LLM_ENABLED` 不是 `true`
+- `LLM_API_KEY` 为空或未注入容器
+- LLM 接口返回非 2xx/超时/响应格式不符合预期（系统会自动回退规则引擎）
+
+建议检查：
+```bash
+sudo docker compose -f infra/docker-compose.yml logs --tail=200 control-plane
+```
+
+### 2）`8081` 前端页面无法访问
+先确认容器是否存在并映射端口：
+```bash
+sudo docker compose -f infra/docker-compose.yml ps
+curl -I http://127.0.0.1:8081
+```
+若 VM 内可访问而外部不可访问，通常是防火墙未放行：
+```bash
+sudo ufw allow 8080/tcp
+sudo ufw allow 8081/tcp
+sudo ufw reload
+```
 
 ## VM 部署
 见 `docs/vm-setup.md`。
