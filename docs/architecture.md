@@ -4,11 +4,12 @@
 - Input: natural language `GoalSpec`
 - Planner: build `GoalPlan` with ordered `AtomicOp` graph
 - Executor: deterministic state machine with retry, repair, rollback
+- Semantic planning engine: `IntentParser -> PlanGraphBuilder -> PlanVerifier`
 
 ## 2. Unified Abstraction Layer
 - Capability router dispatches op types to providers
 - Providers are API-first and platform-agnostic
-- Current providers: File, Network, Compute, Runtime
+- Current providers: File, Network, Compute, Runtime, System, Kubernetes, Cloud CLI
 
 ## 3. Self-healing VFS Contract
 - Failures return structured `FailureObject`
@@ -20,6 +21,7 @@
 - Runtime apply modeled as `RUNTIME_APPLY_DECLARATIVE_STATE`
 - Runtime provider can execute concrete shell command when requested
 - Runtime provider supports local and SSH remote command execution adapters (password or key auth)
+- DesiredState reconcile loop supported via `reconcileApplyCommand` + `reconcileVerifyCommand`
 
 ## 5. Persistence and Replay
 - `goal_execution`: goal outcome and failure JSON snapshot

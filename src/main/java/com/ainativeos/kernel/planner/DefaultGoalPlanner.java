@@ -5,6 +5,8 @@ import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.DesiredState;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
+import com.ainativeos.kernel.planner.semantic.PlanningBlueprint;
+import com.ainativeos.kernel.planner.semantic.SemanticPlanningEngine;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -24,9 +26,11 @@ import java.util.Map;
 public class DefaultGoalPlanner implements GoalPlanner {
 
     private final ExecutionPolicyProperties executionPolicy;
+    private final SemanticPlanningEngine semanticPlanningEngine;
 
-    public DefaultGoalPlanner(ExecutionPolicyProperties executionPolicy) {
+    public DefaultGoalPlanner(ExecutionPolicyProperties executionPolicy, SemanticPlanningEngine semanticPlanningEngine) {
         this.executionPolicy = executionPolicy;
+        this.semanticPlanningEngine = semanticPlanningEngine;
     }
 
     @Override
@@ -39,23 +43,14 @@ public class DefaultGoalPlanner implements GoalPlanner {
         DesiredState desiredState = new DesiredState("state-" + goalSpec.goalId(), "Converge declared runtime state", resources);
 
         int defaultTimeout = executionPolicy.getDefaultOpTimeoutSeconds();
-        List<AtomicOp> ops = new ArrayList<>();
-        // 1) 意图解析
-        ops.add(new AtomicOp("op-parse", "COMPUTE_PARSE_INTENT", "Parse natural language goal into executable graph", Map.of(
-                "intent", goalSpec.naturalLanguageIntent()
-        ), true, false, 20));
-        // 2) 策略评估
-        ops.add(new AtomicOp("op-policy", "COMPUTE_POLICY_EVAL", "Validate goal against policy profile", Map.of(
-                "profile", goalSpec.normalizedPolicyProfile()
-        ), true, false, 20));
-        // 3) 能力映射
-        ops.add(new AtomicOp("op-capability", "COMPUTE_RESOLVE_CAPABILITY", "Resolve provider bindings across OS/cloud", Map.of(
-                "constraints", goalSpec.constraints() == null ? Map.of() : goalSpec.constraints()
-        ), true, false, 20));
+        // 通过语义规划引擎生成前置操作（parse/policy/capability + adapter specific ops）
+        PlanningBlueprint blueprint = semanticPlanningEngine.build(goalSpec, defaultTimeout);
+        List<AtomicOp> ops = new ArrayList<>(blueprint.preRuntimeOps());
 
         // 4) 运行时应用（本地/远程）参数集合
         Map<String, Object> runtimeParams = new HashMap<>();
         runtimeParams.put("state", desiredState);
+        runtimeParams.put("planningWarnings", blueprint.warnings());
         if (goalSpec.constraints() != null) {
             if ("true".equalsIgnoreCase(goalSpec.constraints().getOrDefault("simulateFailure", "false"))) {
                 runtimeParams.put("simulateFailure", true);
@@ -84,6 +79,18 @@ public class DefaultGoalPlanner implements GoalPlanner {
             if (goalSpec.constraints().containsKey("remotePassphrase")) {
                 runtimeParams.put("remotePassphrase", goalSpec.constraints().get("remotePassphrase"));
             }
+            if (goalSpec.constraints().containsKey("reconcileApplyCommand")) {
+                runtimeParams.put("reconcileApplyCommand", goalSpec.constraints().get("reconcileApplyCommand"));
+            }
+            if (goalSpec.constraints().containsKey("reconcileVerifyCommand")) {
+                runtimeParams.put("reconcileVerifyCommand", goalSpec.constraints().get("reconcileVerifyCommand"));
+            }
+            if (goalSpec.constraints().containsKey("reconcileMaxRounds")) {
+                runtimeParams.put("reconcileMaxRounds", goalSpec.constraints().get("reconcileMaxRounds"));
+            }
+            if (goalSpec.constraints().containsKey("reconcileIntervalMs")) {
+                runtimeParams.put("reconcileIntervalMs", goalSpec.constraints().get("reconcileIntervalMs"));
+            }
         }
 
         ops.add(new AtomicOp("op-apply", "RUNTIME_APPLY_DECLARATIVE_STATE", "Apply desired state to runtime substrate", runtimeParams, true, true, defaultTimeout));
@@ -93,6 +100,6 @@ public class DefaultGoalPlanner implements GoalPlanner {
                 "criteria", goalSpec.successCriteria()
         ), true, false, 20));
 
-        return new GoalPlan(goalSpec, desiredState, ops, "planner-v2");
+        return new GoalPlan(goalSpec, desiredState, ops, "planner-v3");
     }
 }

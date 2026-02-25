@@ -14,10 +14,12 @@ AI-Native 统一操作模型，核心能力包括：
 
 ## 核心模块
 - 规划器：`kernel/planner/DefaultGoalPlanner`
+- 语义规划引擎：`kernel/planner/semantic/*`（意图解析、计划图、验证器）
 - 策略门控：`kernel/policy/SimplePolicyEngine`
 - 执行状态机：`kernel/execution/SemanticExecutionEngine`
 - 能力总线：`capability/CapabilityRouter` + Providers
 - 运行时适配器：`runtime/LocalCommandExecutor`、`runtime/SshCommandExecutor`
+- 状态收敛控制器：`runtime/DesiredStateReconciler`
 - 自愈模块：`kernel/healing/FailureAnalyzer` + `RepairPlanner`
 - 持久化：`goal_execution` + `goal_trace`
 
@@ -89,7 +91,7 @@ curl -s -X POST http://127.0.0.1:8080/api/goals/plan \
     {"opId": "op-apply", "type": "RUNTIME_APPLY_DECLARATIVE_STATE"},
     {"opId": "op-verify", "type": "COMPUTE_VERIFY_SUCCESS"}
   ],
-  "plannerVersion": "planner-v2"
+  "plannerVersion": "planner-v3"
 }
 ```
 
@@ -206,7 +208,7 @@ curl -s "http://127.0.0.1:8080/api/goals/executions?goalId=goal-exec-ssh-key-001
     "goalId": "goal-exec-ssh-key-001",
     "status": "SUCCEEDED",
     "summary": "Goal converged to desired state",
-    "plannerVersion": "planner-v2",
+    "plannerVersion": "planner-v3",
     "createdAt": "2026-02-25T04:49:35.763416Z"
   }
 ]
@@ -244,6 +246,31 @@ curl -s "http://127.0.0.1:8080/api/goals/goal-exec-ssh-key-001/trace"
 1. `remotePrivateKeyBase64`（推荐）
 2. `remotePrivateKey`
 3. `remotePassword`（兜底）
+
+### 声明式收敛（Reconcile）参数
+当你希望“应用命令 + 验证命令”循环执行直到收敛，可传入：
+- `reconcileApplyCommand`
+- `reconcileVerifyCommand`
+- `reconcileMaxRounds`（可选，默认 5）
+- `reconcileIntervalMs`（可选，默认 2000）
+
+示例：
+```json
+{
+  "goalId": "goal-reconcile-001",
+  "naturalLanguageIntent": "converge runtime state",
+  "successCriteria": ["reconcile_ok"],
+  "constraints": {
+    "runtimeCommand": "echo fallback-runtime-command",
+    "reconcileApplyCommand": "kubectl apply -f deploy.yaml",
+    "reconcileVerifyCommand": "kubectl get deploy my-app -o jsonpath='{.status.availableReplicas}' | grep 1",
+    "reconcileMaxRounds": "8",
+    "reconcileIntervalMs": "3000"
+  },
+  "maxRetries": 2,
+  "policyProfile": "default"
+}
+```
 
 ## 字段字典
 

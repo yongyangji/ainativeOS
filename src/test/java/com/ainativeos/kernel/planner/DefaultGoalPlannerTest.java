@@ -3,6 +3,10 @@ package com.ainativeos.kernel.planner;
 import com.ainativeos.config.ExecutionPolicyProperties;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
+import com.ainativeos.kernel.planner.semantic.DefaultPlanVerifier;
+import com.ainativeos.kernel.planner.semantic.HeuristicPlanGraphBuilder;
+import com.ainativeos.kernel.planner.semantic.RuleBasedIntentParser;
+import com.ainativeos.kernel.planner.semantic.SemanticPlanningEngine;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -16,7 +20,12 @@ class DefaultGoalPlannerTest {
     @Test
     void shouldIncludeRuntimeCommandWhenProvided() {
         ExecutionPolicyProperties policy = new ExecutionPolicyProperties();
-        DefaultGoalPlanner planner = new DefaultGoalPlanner(policy);
+        SemanticPlanningEngine planningEngine = new SemanticPlanningEngine(
+                new RuleBasedIntentParser(),
+                new HeuristicPlanGraphBuilder(),
+                new DefaultPlanVerifier()
+        );
+        DefaultGoalPlanner planner = new DefaultGoalPlanner(policy, planningEngine);
 
         GoalSpec spec = new GoalSpec(
                 "g1",
@@ -28,7 +37,7 @@ class DefaultGoalPlannerTest {
         );
 
         GoalPlan plan = planner.plan(spec);
-        assertEquals("planner-v2", plan.plannerVersion());
+        assertEquals("planner-v3", plan.plannerVersion());
         assertTrue(plan.atomicOps().stream().anyMatch(op -> "RUNTIME_APPLY_DECLARATIVE_STATE".equals(op.type())));
         assertTrue(plan.atomicOps().stream().anyMatch(op -> "echo test".equals(op.parameters().get("command"))));
     }

@@ -5,7 +5,9 @@ import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.ContextFrame;
 import com.ainativeos.domain.OpExecutionResult;
 import com.ainativeos.runtime.CommandExecutionResult;
+import com.ainativeos.runtime.DesiredStateReconciler;
 import com.ainativeos.runtime.LocalCommandExecutor;
+import com.ainativeos.runtime.ReconcileResult;
 import com.ainativeos.runtime.SshCommandExecutor;
 import org.springframework.stereotype.Component;
 
@@ -27,10 +29,16 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
 
     private final LocalCommandExecutor localCommandExecutor;
     private final SshCommandExecutor sshCommandExecutor;
+    private final DesiredStateReconciler desiredStateReconciler;
 
-    public RuntimeCapabilityProvider(LocalCommandExecutor localCommandExecutor, SshCommandExecutor sshCommandExecutor) {
+    public RuntimeCapabilityProvider(
+            LocalCommandExecutor localCommandExecutor,
+            SshCommandExecutor sshCommandExecutor,
+            DesiredStateReconciler desiredStateReconciler
+    ) {
         this.localCommandExecutor = localCommandExecutor;
         this.sshCommandExecutor = sshCommandExecutor;
+        this.desiredStateReconciler = desiredStateReconciler;
     }
 
     @Override
@@ -71,6 +79,39 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
 
         Object commandRaw = atomicOp.parameters().get("command");
         if (commandRaw instanceof String cmd && !cmd.isBlank()) {
+            ReconcileResult reconcileResult = tryReconcile(atomicOp);
+            if (reconcileResult != null) {
+                frames.add(new ContextFrame(
+                        "runtime-reconcile",
+                        atomicOp.type(),
+                        providerName(),
+                        targetFingerprint(atomicOp),
+                        Map.of(
+                                "rounds", String.valueOf(reconcileResult.rounds()),
+                                "reconcile", reconcileResult.success() ? "success" : "failed"
+                        ),
+                        Instant.now()
+                ));
+                if (!reconcileResult.success()) {
+                    return new OpExecutionResult(
+                            false,
+                            providerName(),
+                            "Runtime reconcile failed: " + reconcileResult.message(),
+                            frames,
+                            "RUNTIME_RECONCILE_FAILED",
+                            "Check reconcileApplyCommand/reconcileVerifyCommand"
+                    );
+                }
+                return new OpExecutionResult(
+                        true,
+                        providerName(),
+                        "Runtime reconcile success in rounds=" + reconcileResult.rounds(),
+                        frames,
+                        null,
+                        null
+                );
+            }
+
             // 根据参数自动选择本地/SSH执行路径
             CommandExecutionResult commandResult = executeCommand(atomicOp, cmd);
             frames.add(new ContextFrame(
@@ -108,6 +149,23 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
         }
 
         return new OpExecutionResult(true, providerName(), "Declarative runtime state applied", frames, null, null);
+    }
+
+    private ReconcileResult tryReconcile(AtomicOp atomicOp) {
+        String applyCommand = value(atomicOp, "reconcileApplyCommand");
+        String verifyCommand = value(atomicOp, "reconcileVerifyCommand");
+        if (applyCommand == null || verifyCommand == null) {
+            return null;
+        }
+        int rounds = parseIntOrDefault(value(atomicOp, "reconcileMaxRounds"), 5);
+        long intervalMs = parseLongOrDefault(value(atomicOp, "reconcileIntervalMs"), 2000L);
+        return desiredStateReconciler.reconcile(
+                applyCommand,
+                verifyCommand,
+                rounds,
+                intervalMs,
+                cmd -> executeCommand(atomicOp, cmd)
+        );
     }
 
     @Override
@@ -191,6 +249,17 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
         }
         try {
             return Integer.parseInt(val);
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
+    }
+
+    private long parseLongOrDefault(String val, long defaultValue) {
+        if (val == null) {
+            return defaultValue;
+        }
+        try {
+            return Long.parseLong(val);
         } catch (NumberFormatException ignored) {
             return defaultValue;
         }
