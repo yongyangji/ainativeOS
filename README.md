@@ -331,6 +331,9 @@ ainativeos:
     timeout-seconds: 20
 ```
 
+Docker Compose 场景下，推荐在 `infra/.env` 中配置 `LLM_*`（模板见 `infra/.env.example`）。
+`infra/.env` 已加入 `.gitignore`，不会提交到仓库。
+
 ## 字段字典
 
 ### GoalSpec（`/api/goals/plan` 与 `/api/goals/execute` 请求体）
