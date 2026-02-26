@@ -363,6 +363,37 @@ curl -s "http://127.0.0.1:8080/api/goals/runtime-adapters"
 - `requiredCommands=cmd1,cmd2`
 - `minMemoryGb=16`（配合 `computeClass=highmem`）
 
+### CLI 与 Java SDK（EPIC-7）
+- CLI 入口：`com.ainativeos.cli.AinativeOsCli`
+- Java SDK 核心类：
+  - `com.ainativeos.sdk.AinativeOsClient`
+  - `com.ainativeos.sdk.AinativeOsClientConfig`
+  - `com.ainativeos.sdk.model.*`（强类型请求/响应）
+
+CLI 示例：
+```bash
+# 先打包
+mvn -DskipTests package
+
+# 执行 plan
+java -cp target/ainativeos-0.1.0-SNAPSHOT.jar com.ainativeos.cli.AinativeOsCli \
+  plan --base-url http://127.0.0.1:8080 --file ./goal-spec.json
+
+# 查询 trace
+java -cp target/ainativeos-0.1.0-SNAPSHOT.jar com.ainativeos.cli.AinativeOsCli \
+  trace --base-url http://127.0.0.1:8080 --goal-id goal-ui-001
+```
+
+Java SDK 示例：
+```java
+AinativeOsClient client = new AinativeOsClient(
+    AinativeOsClientConfig.defaults("http://127.0.0.1:8080")
+);
+GoalPlanResponse plan = client.plan(request);
+GoalExecutionResponse result = client.execute(request);
+List<TraceEventItem> trace = client.trace(request.goalId());
+```
+
 ### 本地命令模式
 - 当传入 `constraints.runtimeCommand` 时，运行时会在本地 shell 执行命令。
 - Windows：`powershell -Command <runtimeCommand>`
