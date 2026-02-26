@@ -48,6 +48,10 @@ ainativeos:
     endpoint: ${LLM_ENDPOINT:https://api.openai.com/v1/chat/completions}
     api-key: ${LLM_API_KEY:}
     model: ${LLM_MODEL:gpt-4o-mini}
+    fallback-provider: ${LLM_FALLBACK_PROVIDER:}
+    fallback-endpoint: ${LLM_FALLBACK_ENDPOINT:}
+    fallback-api-key: ${LLM_FALLBACK_API_KEY:}
+    fallback-model: ${LLM_FALLBACK_MODEL:}
     timeout-seconds: ${LLM_TIMEOUT_SECONDS:20}
   reconcile:
     controller-interval-ms: ${RECONCILE_CONTROLLER_INTERVAL_MS:5000}

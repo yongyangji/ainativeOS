@@ -13,6 +13,10 @@ public class LlmProperties {
     private String endpoint = "https://api.openai.com/v1/chat/completions";
     private String apiKey = "";
     private String model = "gpt-4o-mini";
+    private String fallbackProvider = "";
+    private String fallbackEndpoint = "";
+    private String fallbackApiKey = "";
+    private String fallbackModel = "";
     private int timeoutSeconds = 20;
 
     public boolean isEnabled() {
@@ -55,6 +59,38 @@ public class LlmProperties {
         this.model = model;
     }
 
+    public String getFallbackProvider() {
+        return fallbackProvider;
+    }
+
+    public void setFallbackProvider(String fallbackProvider) {
+        this.fallbackProvider = fallbackProvider;
+    }
+
+    public String getFallbackEndpoint() {
+        return fallbackEndpoint;
+    }
+
+    public void setFallbackEndpoint(String fallbackEndpoint) {
+        this.fallbackEndpoint = fallbackEndpoint;
+    }
+
+    public String getFallbackApiKey() {
+        return fallbackApiKey;
+    }
+
+    public void setFallbackApiKey(String fallbackApiKey) {
+        this.fallbackApiKey = fallbackApiKey;
+    }
+
+    public String getFallbackModel() {
+        return fallbackModel;
+    }
+
+    public void setFallbackModel(String fallbackModel) {
+        this.fallbackModel = fallbackModel;
+    }
+
     public int getTimeoutSeconds() {
         return timeoutSeconds;
     }
@@ -63,4 +99,3 @@ public class LlmProperties {
         this.timeoutSeconds = timeoutSeconds;
     }
 }
-

@@ -62,12 +62,13 @@ class GoalControllerTest {
                 "default"
         );
 
-        GoalPlan mockPlan = new GoalPlan(validGoalSpec, null, List.of(), "planner-v3", false, Map.of());
+        GoalPlan mockPlan = new GoalPlan(validGoalSpec, null, List.of(), "planner-v3", false, "", Map.of());
         GoalExecutionResult expectedResult = new GoalExecutionResult(
                 "goal-test-001",
                 ExecutionStatus.SUCCEEDED,
                 "Goal converged to desired state",
                 false,
+                "",
                 null,
                 List.of(),
                 Instant.now()
@@ -117,7 +118,7 @@ class GoalControllerTest {
                 2,
                 "default"
         );
-        GoalPlan mockPlan = new GoalPlan(validGoalSpec, null, List.of(), "planner-v3", false, Map.of());
+        GoalPlan mockPlan = new GoalPlan(validGoalSpec, null, List.of(), "planner-v3", false, "", Map.of());
         String errorMsg = "Execution failed";
 
         when(semanticKernelService.plan(validGoalSpec)).thenReturn(mockPlan);

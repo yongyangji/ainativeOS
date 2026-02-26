@@ -39,6 +39,8 @@ AI-Native 统一操作模型，核心能力包括：
 - 执行引擎升级为 DAG 依赖调度：支持无依赖节点并行执行与失败 fallback 分支。
 - 计划图快照已持久化到执行记录，支持按 `goalId` 回放。
 - 策略中心升级：支持 `policyProfile` 的重试/超时/回滚策略、执行级熔断、任务级限流。
+- LLM 路由升级：支持 primary/fallback provider，记录调用耗时/状态码/fallback 命中。
+- `GoalPlan` 与 `GoalExecutionResult` 增加 `llmRationale` 字段。
 
 ## API 列表
 - `POST /api/goals/plan`
@@ -387,6 +389,19 @@ LLM_MODEL=deepseek-chat
 LLM_TIMEOUT_SECONDS=30
 ```
 
+Primary/Fallback 路由示例：
+```dotenv
+LLM_ENABLED=true
+LLM_PROVIDER=deepseek
+LLM_ENDPOINT=https://api.deepseek.com/chat/completions
+LLM_API_KEY=primary-key
+LLM_MODEL=deepseek-chat
+LLM_FALLBACK_PROVIDER=openai
+LLM_FALLBACK_ENDPOINT=https://api.openai.com/v1/chat/completions
+LLM_FALLBACK_API_KEY=fallback-key
+LLM_FALLBACK_MODEL=gpt-4o-mini
+```
+
 执行策略示例（可按 profile 覆盖）：
 ```yaml
 ainativeos:
@@ -449,6 +464,7 @@ sudo docker compose -f infra/docker-compose.yml exec control-plane sh -lc 'echo 
 | `atomicOps` | `AtomicOp[]` | 规划后的原子步骤序列。 |
 | `plannerVersion` | `string` | 规划器版本标识。 |
 | `llmUsed` | `boolean` | 本次规划是否命中 LLM 推理。 |
+| `llmRationale` | `string` | LLM 推理摘要（失败回退时通常为空）。 |
 | `planGraph` | `object` | 可回放 DAG 快照（节点/依赖/失败分支）。 |
 
 ### GoalExecutionResult（`/api/goals/execute` 响应）
@@ -458,6 +474,7 @@ sudo docker compose -f infra/docker-compose.yml exec control-plane sh -lc 'echo 
 | `status` | `string` | 最终状态：`SUCCEEDED`、`FAILED`、`BLOCKED`。 |
 | `message` | `string` | 执行结果摘要。 |
 | `llmUsed` | `boolean` | 本次执行对应计划是否命中 LLM 推理。 |
+| `llmRationale` | `string` | 规划阶段 LLM 推理摘要。 |
 | `failureObject` | `object \| null` | 终态失败时的结构化失败对象。 |
 | `trace` | `ExecutionTraceEntry[]` | 全链路执行轨迹。 |
 | `completedAt` | `datetime` | 完成时间（UTC）。 |

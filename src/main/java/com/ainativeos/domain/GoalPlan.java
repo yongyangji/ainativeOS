@@ -14,6 +14,7 @@ public record GoalPlan(
         List<AtomicOp> atomicOps,
         String plannerVersion,
         boolean llmUsed,
+        String llmRationale,
         Map<String, Object> planGraph
 ) {
 }

@@ -27,10 +27,16 @@ public class OpenAiSemanticReasoner implements SemanticReasoner {
     private static final Logger log = LoggerFactory.getLogger(OpenAiSemanticReasoner.class);
     private final LlmProperties llmProperties;
     private final ObjectMapper objectMapper;
+    private final LlmInvocationAuditService llmInvocationAuditService;
 
-    public OpenAiSemanticReasoner(LlmProperties llmProperties, ObjectMapper objectMapper) {
+    public OpenAiSemanticReasoner(
+            LlmProperties llmProperties,
+            ObjectMapper objectMapper,
+            LlmInvocationAuditService llmInvocationAuditService
+    ) {
         this.llmProperties = llmProperties;
         this.objectMapper = objectMapper;
+        this.llmInvocationAuditService = llmInvocationAuditService;
     }
 
     @Override
@@ -40,6 +46,57 @@ public class OpenAiSemanticReasoner implements SemanticReasoner {
                     llmProperties.isEnabled(), llmProperties.getProvider());
             return Optional.empty();
         }
+        long start = System.currentTimeMillis();
+        ProviderConfig primary = ProviderConfig.primary(llmProperties);
+        ProviderResult primaryResult = callProvider(goalSpec, primary);
+        if (primaryResult.success()) {
+            llmInvocationAuditService.record(
+                    goalSpec.goalId(),
+                    primary.provider(),
+                    primary.provider(),
+                    false,
+                    primaryResult.statusCode(),
+                    true,
+                    System.currentTimeMillis() - start,
+                    ""
+            );
+            return Optional.of(primaryResult.hints());
+        }
+
+        ProviderConfig fallback = ProviderConfig.fallback(llmProperties);
+        if (fallback.isConfigured()) {
+            ProviderResult fallbackResult = callProvider(goalSpec, fallback);
+            boolean fallbackSuccess = fallbackResult.success();
+            llmInvocationAuditService.record(
+                    goalSpec.goalId(),
+                    primary.provider(),
+                    fallback.provider(),
+                    true,
+                    fallbackResult.statusCode(),
+                    fallbackSuccess,
+                    System.currentTimeMillis() - start,
+                    fallbackResult.errorMessage()
+            );
+            if (fallbackSuccess) {
+                return Optional.of(fallbackResult.hints());
+            }
+            return Optional.empty();
+        }
+
+        llmInvocationAuditService.record(
+                goalSpec.goalId(),
+                primary.provider(),
+                primary.provider(),
+                false,
+                primaryResult.statusCode(),
+                false,
+                System.currentTimeMillis() - start,
+                primaryResult.errorMessage()
+        );
+        return Optional.empty();
+    }
+
+    private ProviderResult callProvider(GoalSpec goalSpec, ProviderConfig config) {
         try {
             String schemaPrompt = """
                     Return strict JSON with keys:
@@ -49,7 +106,7 @@ public class OpenAiSemanticReasoner implements SemanticReasoner {
                     """;
             String userPrompt = "GoalSpec=" + objectMapper.writeValueAsString(goalSpec);
             String body = objectMapper.writeValueAsString(Map.of(
-                    "model", llmProperties.getModel(),
+                    "model", config.model(),
                     "messages", List.of(
                             Map.of("role", "system", "content", schemaPrompt),
                             Map.of("role", "user", "content", userPrompt)
@@ -58,8 +115,8 @@ public class OpenAiSemanticReasoner implements SemanticReasoner {
             ));
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(llmProperties.getEndpoint()))
-                    .header("Authorization", "Bearer " + llmProperties.getApiKey())
+                    .uri(URI.create(config.endpoint()))
+                    .header("Authorization", "Bearer " + config.apiKey())
                     .header("Content-Type", "application/json")
                     .timeout(Duration.ofSeconds(llmProperties.getTimeoutSeconds()))
                     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -72,17 +129,17 @@ public class OpenAiSemanticReasoner implements SemanticReasoner {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.warn("LLM request failed. provider={}, status={}, body={}",
-                        llmProperties.getProvider(),
+                        config.provider(),
                         response.statusCode(),
                         truncate(response.body(), 300));
-                return Optional.empty();
+                return ProviderResult.failure(response.statusCode(), "http_non_2xx");
             }
 
             JsonNode root = objectMapper.readTree(response.body());
             JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
             if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
-                log.warn("LLM response missing content. provider={}", llmProperties.getProvider());
-                return Optional.empty();
+                log.warn("LLM response missing content. provider={}", config.provider());
+                return ProviderResult.failure(response.statusCode(), "empty_content");
             }
             JsonNode hintNode = objectMapper.readTree(contentNode.asText());
             List<String> actions = objectMapper.convertValue(
@@ -95,15 +152,18 @@ public class OpenAiSemanticReasoner implements SemanticReasoner {
             );
             String rationale = hintNode.path("rationale").asText("");
             log.info("LLM hints merged. provider={}, model={}, actions={}, constraints={}",
-                    llmProperties.getProvider(),
-                    llmProperties.getModel(),
+                    config.provider(),
+                    config.model(),
                     actions == null ? 0 : actions.size(),
                     constraints == null ? 0 : constraints.size());
-            return Optional.of(new LlmPlanHints(actions == null ? List.of() : actions, constraints == null ? Map.of() : constraints, rationale));
+            return ProviderResult.success(
+                    response.statusCode(),
+                    new LlmPlanHints(actions == null ? List.of() : actions, constraints == null ? Map.of() : constraints, rationale)
+            );
         } catch (Exception e) {
             log.warn("LLM request exception. provider={}, message={}",
-                    llmProperties.getProvider(), e.getMessage());
-            return Optional.empty();
+                    config.provider(), e.getMessage());
+            return ProviderResult.failure(-1, e.getMessage());
         }
     }
 
@@ -112,5 +172,53 @@ public class OpenAiSemanticReasoner implements SemanticReasoner {
             return "";
         }
         return text.length() <= max ? text : text.substring(0, max) + "...";
+    }
+
+    private record ProviderConfig(
+            String provider,
+            String endpoint,
+            String apiKey,
+            String model
+    ) {
+        static ProviderConfig primary(LlmProperties props) {
+            return new ProviderConfig(
+                    blankDefault(props.getProvider(), "openai"),
+                    blankDefault(props.getEndpoint(), "https://api.openai.com/v1/chat/completions"),
+                    blankDefault(props.getApiKey(), ""),
+                    blankDefault(props.getModel(), "gpt-4o-mini")
+            );
+        }
+
+        static ProviderConfig fallback(LlmProperties props) {
+            return new ProviderConfig(
+                    blankDefault(props.getFallbackProvider(), ""),
+                    blankDefault(props.getFallbackEndpoint(), ""),
+                    blankDefault(props.getFallbackApiKey(), ""),
+                    blankDefault(props.getFallbackModel(), "")
+            );
+        }
+
+        boolean isConfigured() {
+            return !provider.isBlank() && !endpoint.isBlank() && !apiKey.isBlank() && !model.isBlank();
+        }
+
+        private static String blankDefault(String value, String fallback) {
+            return value == null || value.isBlank() ? fallback : value;
+        }
+    }
+
+    private record ProviderResult(
+            boolean success,
+            int statusCode,
+            String errorMessage,
+            LlmPlanHints hints
+    ) {
+        static ProviderResult success(int statusCode, LlmPlanHints hints) {
+            return new ProviderResult(true, statusCode, "", hints);
+        }
+
+        static ProviderResult failure(int statusCode, String errorMessage) {
+            return new ProviderResult(false, statusCode, errorMessage, null);
+        }
     }
 }

@@ -135,7 +135,7 @@ public class DefaultGoalPlanner implements GoalPlanner {
         ops.add(new AtomicOp("op-verify", "COMPUTE_VERIFY_SUCCESS", "Evaluate success criteria", verifyParams, true, false, 20));
 
         Map<String, Object> planGraphSnapshot = buildPlanGraphSnapshot(ops);
-        return new GoalPlan(goalSpec, desiredState, ops, "planner-v3", blueprint.llmUsed(), planGraphSnapshot);
+        return new GoalPlan(goalSpec, desiredState, ops, "planner-v3", blueprint.llmUsed(), blueprint.llmRationale(), planGraphSnapshot);
     }
 
     private Map<String, Object> buildPlanGraphSnapshot(List<AtomicOp> ops) {

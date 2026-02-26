@@ -96,6 +96,7 @@ public class SemanticExecutionEngine {
                     ExecutionStatus.BLOCKED,
                     decision.reason(),
                     plan.llmUsed(),
+                    plan.llmRationale(),
                     blockedFailure,
                     trace,
                     Instant.now()
@@ -150,6 +151,7 @@ public class SemanticExecutionEngine {
                             ExecutionStatus.FAILED,
                             "Execution failed due to dependency deadlock",
                             plan.llmUsed(),
+                            plan.llmRationale(),
                             dependencyFailure,
                             sortTrace(trace),
                             Instant.now()
@@ -206,6 +208,7 @@ public class SemanticExecutionEngine {
                             ExecutionStatus.FAILED,
                             "Execution failed after retries" + (resolvedPolicy.rollbackOnFailure() ? " and rollback completed" : ""),
                             plan.llmUsed(),
+                            plan.llmRationale(),
                             failed.failureObject(),
                             sortTrace(trace),
                             Instant.now()
@@ -223,6 +226,7 @@ public class SemanticExecutionEngine {
                 ExecutionStatus.SUCCEEDED,
                 "Goal converged to desired state",
                 plan.llmUsed(),
+                plan.llmRationale(),
                 null,
                 sortTrace(trace),
                 Instant.now()

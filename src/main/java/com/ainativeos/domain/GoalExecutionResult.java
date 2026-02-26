@@ -13,6 +13,7 @@ public record GoalExecutionResult(
         ExecutionStatus status,
         String message,
         boolean llmUsed,
+        String llmRationale,
         FailureObject failureObject,
         List<ExecutionTraceEntry> trace,
         Instant completedAt
