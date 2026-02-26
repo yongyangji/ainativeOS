@@ -44,23 +44,39 @@ public class SemanticPlanningEngine {
         List<String> warnings = planVerifier.verify(goalSpec, graph);
 
         List<AtomicOp> ops = new ArrayList<>();
+        Map<String, String> nodeToOpId = new HashMap<>();
         int index = 0;
         for (PlanNode node : graph.nodes()) {
             String opId = "op-" + index++ + "-" + node.nodeId();
+            nodeToOpId.put(node.nodeId(), opId);
+        }
+
+        for (PlanNode node : graph.nodes()) {
+            String opId = nodeToOpId.get(node.nodeId());
             boolean rollbackSupported = node.opType().startsWith("SYSTEM_")
                     || node.opType().startsWith("K8S_")
                     || node.opType().startsWith("CLOUD_");
+            Map<String, Object> params = new HashMap<>(node.params());
+            params.put("graphNodeId", node.nodeId());
+            params.put("dependsOnOpIds", node.dependsOnNodeIds().stream()
+                    .map(nodeToOpId::get)
+                    .filter(java.util.Objects::nonNull)
+                    .toList());
+            if (node.onFailureNodeId() != null && nodeToOpId.containsKey(node.onFailureNodeId())) {
+                params.put("onFailureOpId", nodeToOpId.get(node.onFailureNodeId()));
+            }
+            params.put("branchOnly", node.branchOnly());
             ops.add(new AtomicOp(
                     opId,
                     node.opType(),
                     node.description(),
-                    node.params(),
+                    params,
                     true,
                     rollbackSupported,
                     defaultTimeoutSeconds
             ));
         }
-        return new PlanningBlueprint(ops, warnings, mergeResult.llmUsed(), mergeResult.llmRationale());
+        return new PlanningBlueprint(ops, warnings, mergeResult.llmUsed(), mergeResult.llmRationale(), graph);
     }
 
     private LlmMergeResult mergeLlmHints(GoalSpec goalSpec, ParsedIntent parsedIntent) {

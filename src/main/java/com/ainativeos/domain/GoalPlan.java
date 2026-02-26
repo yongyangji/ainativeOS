@@ -1,6 +1,7 @@
 package com.ainativeos.domain;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 目标执行计划。
@@ -12,6 +13,7 @@ public record GoalPlan(
         DesiredState desiredState,
         List<AtomicOp> atomicOps,
         String plannerVersion,
-        boolean llmUsed
+        boolean llmUsed,
+        Map<String, Object> planGraph
 ) {
 }

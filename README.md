@@ -36,12 +36,15 @@ AI-Native 统一操作模型，核心能力包括：
 - `GoalPlan` 与 `GoalExecutionResult` 新增 `llmUsed` 字段。
 - LLM 调用链路增加诊断日志（未启用、HTTP 非 2xx、解析失败、异常回退）。
 - 架构文档升级为中英双语并新增 roadmap/backlog 文档。
+- 执行引擎升级为 DAG 依赖调度：支持无依赖节点并行执行与失败 fallback 分支。
+- 计划图快照已持久化到执行记录，支持按 `goalId` 回放。
 
 ## API 列表
 - `POST /api/goals/plan`
 - `POST /api/goals/execute`
 - `GET /api/goals/executions?goalId=...`
 - `GET /api/goals/{goalId}/trace`
+- `GET /api/goals/{goalId}/replay`
 - `GET /api/goals/reconcile-jobs?goalId=...`
 - `GET /api/goals/health`
 
@@ -255,6 +258,30 @@ curl -s "http://127.0.0.1:8080/api/goals/goal-exec-ssh-key-001/trace"
 curl -s "http://127.0.0.1:8080/api/goals/reconcile-jobs?goalId=goal-continuous-001"
 ```
 
+### 9）按 goalId 回放计划图与执行轨迹
+请求：
+```bash
+curl -s "http://127.0.0.1:8080/api/goals/goal-ui-001/replay"
+```
+
+响应（节选）：
+```json
+{
+  "goalId": "goal-ui-001",
+  "latestExecutionId": 18,
+  "planGraph": {
+    "format": "planner-v4-dag",
+    "nodes": [
+      {"opId":"op-0-node-parse","dependsOnOpIds":[],"onFailureOpId":"","branchOnly":false},
+      {"opId":"op-1-node-policy","dependsOnOpIds":["op-0-node-parse"],"onFailureOpId":"","branchOnly":false}
+    ]
+  },
+  "trace": [
+    {"opId":"op-0-node-parse","status":"SUCCEEDED","attempt":1}
+  ]
+}
+```
+
 响应示例：
 ```json
 [
@@ -398,6 +425,7 @@ sudo docker compose -f infra/docker-compose.yml exec control-plane sh -lc 'echo 
 | `atomicOps` | `AtomicOp[]` | 规划后的原子步骤序列。 |
 | `plannerVersion` | `string` | 规划器版本标识。 |
 | `llmUsed` | `boolean` | 本次规划是否命中 LLM 推理。 |
+| `planGraph` | `object` | 可回放 DAG 快照（节点/依赖/失败分支）。 |
 
 ### GoalExecutionResult（`/api/goals/execute` 响应）
 | 字段 | 类型 | 说明 |
@@ -460,6 +488,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 - `POST /api/goals/execute`
 - `GET /api/goals/executions`
 - `GET /api/goals/{goalId}/trace`
+- `GET /api/goals/{goalId}/replay`
 - `GET /api/goals/reconcile-jobs`
 
 ## 常见问题排障

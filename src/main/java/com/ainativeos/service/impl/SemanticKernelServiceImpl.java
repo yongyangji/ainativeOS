@@ -73,6 +73,7 @@ public class SemanticKernelServiceImpl implements SemanticKernelService {
         execution.setSummary(result.message());
         execution.setPlannerVersion(plan.plannerVersion());
         execution.setFailureJson(toJson(result.failureObject()));
+        execution.setPlanGraphJson(toJson(plan.planGraph()));
         execution.setCreatedAt(Instant.now());
         goalExecutionRepository.save(execution);
 

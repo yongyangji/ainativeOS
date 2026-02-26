@@ -141,6 +141,7 @@
           <div class="row" style="margin:0;">
             <button class="secondary" onclick="callExecutions()">GET executions</button>
             <button class="secondary" onclick="callTrace()">GET trace</button>
+            <button class="secondary" onclick="callReplay()">GET replay</button>
           </div>
         </div>
       </div>
@@ -279,6 +280,22 @@
       const r = await request("/api/goals/reconcile-jobs" + q);
       append("GET /api/goals/reconcile-jobs" + q, r);
       setStatus("reconcile-jobs 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callReplay() {
+    const goalId = goalIdEl.value.trim();
+    if (!goalId) {
+      setStatus("请先输入 goalId", "warn");
+      return;
+    }
+    try {
+      setStatus("请求中...");
+      const r = await request("/api/goals/" + encodeURIComponent(goalId) + "/replay");
+      append("GET /api/goals/" + goalId + "/replay", r);
+      setStatus("replay 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
     } catch (e) {
       setStatus(e.message, "err");
     }

@@ -9,7 +9,9 @@ public record PlanNode(
         String nodeId,
         String opType,
         String description,
-        Map<String, Object> params
+        Map<String, Object> params,
+        java.util.List<String> dependsOnNodeIds,
+        String onFailureNodeId,
+        boolean branchOnly
 ) {
 }
-

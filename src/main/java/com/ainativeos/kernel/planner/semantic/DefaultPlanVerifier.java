@@ -27,6 +27,16 @@ public class DefaultPlanVerifier implements PlanVerifier {
                 warnings.add("duplicated plan node id: " + node.nodeId());
             }
         });
+        graph.nodes().forEach(node -> {
+            for (String dependency : node.dependsOnNodeIds()) {
+                if (!nodeIds.contains(dependency)) {
+                    warnings.add("node dependency missing: " + node.nodeId() + " -> " + dependency);
+                }
+            }
+            if (node.onFailureNodeId() != null && !node.onFailureNodeId().isBlank() && !nodeIds.contains(node.onFailureNodeId())) {
+                warnings.add("node failure-branch target missing: " + node.nodeId() + " -> " + node.onFailureNodeId());
+            }
+        });
 
         boolean hasRuntimeIntent = goalSpec.constraints() != null && goalSpec.constraints().containsKey("runtimeCommand");
         if (!hasRuntimeIntent) {
@@ -35,4 +45,3 @@ public class DefaultPlanVerifier implements PlanVerifier {
         return warnings;
     }
 }
-

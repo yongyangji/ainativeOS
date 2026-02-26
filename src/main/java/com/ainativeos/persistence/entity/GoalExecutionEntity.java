@@ -39,6 +39,9 @@ public class GoalExecutionEntity {
     @Column(name = "planner_version", nullable = false, length = 128)
     private String plannerVersion;
 
+    @Column(name = "plan_graph_json", columnDefinition = "TEXT")
+    private String planGraphJson;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -100,5 +103,13 @@ public class GoalExecutionEntity {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getPlanGraphJson() {
+        return planGraphJson;
+    }
+
+    public void setPlanGraphJson(String planGraphJson) {
+        this.planGraphJson = planGraphJson;
     }
 }

@@ -1,4 +1,4 @@
-package com.ainativeos.kernel.execution;
+﻿package com.ainativeos.kernel.execution;
 
 import com.ainativeos.audit.OperationAuditService;
 import com.ainativeos.capability.CapabilityRouter;
@@ -19,19 +19,19 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @Component
-/**
- * 语义执行引擎（状态机核心）。
- * <p>
- * 主要职责：
- * 1. 执行前策略评估（Policy Gate）
- * 2. 逐个执行原子操作（AtomicOp）
- * 3. 失败时生成 FailureObject 并触发修复重试
- * 4. 超过重试上限后按策略执行回滚
- * 5. 生成完整 trace 供持久化与审计
- */
 public class SemanticExecutionEngine {
 
     private final CapabilityRouter capabilityRouter;
@@ -58,7 +58,6 @@ public class SemanticExecutionEngine {
     }
 
     public GoalExecutionResult run(GoalPlan plan) {
-        // 第一步：策略门控，禁止不合规目标进入执行阶段
         PolicyDecision decision = policyEngine.evaluate(plan);
         List<ExecutionTraceEntry> trace = new ArrayList<>();
         List<AtomicOp> executedOps = new ArrayList<>();
@@ -86,85 +85,108 @@ public class SemanticExecutionEngine {
             );
         }
 
-        // 使用请求级重试配置；未配置时使用系统默认值
         int maxRetries = plan.goalSpec().maxRetries() > 0
                 ? plan.goalSpec().maxRetries()
                 : executionPolicy.getDefaultMaxRetries();
 
-        // 按规划顺序逐步执行原子操作
+        Map<String, AtomicOp> opIndex = new HashMap<>();
+        Set<String> pending = new HashSet<>();
+        Set<String> completed = new HashSet<>();
         for (AtomicOp op : plan.atomicOps()) {
-            if (operationAuditService.shouldShortCircuit(plan.goalSpec().goalId(), op)) {
-                trace.add(new ExecutionTraceEntry(
-                        plan.goalSpec().goalId(),
-                        op.opId(),
-                        op.type(),
-                        "audit-short-circuit",
-                        ExecutionStatus.SUCCEEDED,
-                        "Short-circuited by idempotency audit",
-                        Instant.now(),
-                        0,
-                        List.of()
-                ));
-                continue;
+            opIndex.put(op.opId(), op);
+            if (!isBranchOnly(op)) {
+                pending.add(op.opId());
             }
+        }
 
-            boolean success = false;
-            AtomicOp currentOp = op;
-            FailureObject failureObject = null;
+        int parallelism = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+        ExecutorService executor = Executors.newFixedThreadPool(parallelism);
+        try {
+            while (!pending.isEmpty()) {
+                List<AtomicOp> ready = pending.stream()
+                        .map(opIndex::get)
+                        .filter(op -> completed.containsAll(dependenciesOf(op)))
+                        .sorted(Comparator.comparing(AtomicOp::opId))
+                        .toList();
 
-            // 每个原子操作允许多次尝试（初次 + 重试）
-            for (int attempt = 1; attempt <= maxRetries + 1; attempt++) {
-                OpExecutionResult opResult = capabilityRouter.execute(currentOp);
-                trace.add(new ExecutionTraceEntry(
-                        plan.goalSpec().goalId(),
-                        currentOp.opId(),
-                        currentOp.type(),
-                        opResult.provider(),
-                        opResult.success() ? ExecutionStatus.SUCCEEDED : ExecutionStatus.FAILED,
-                        opResult.message(),
-                        Instant.now(),
-                        attempt,
-                        opResult.contextFrames()
-                ));
-                operationAuditService.record(
-                        plan.goalSpec().goalId(),
-                        currentOp,
-                        opResult.success() ? "SUCCEEDED" : "FAILED",
-                        opResult.provider(),
-                        attempt,
-                        opResult.message()
-                );
-
-                if (opResult.success()) {
-                    // 当前步骤成功，进入下一步骤
-                    success = true;
-                    executedOps.add(currentOp);
-                    break;
+                if (ready.isEmpty()) {
+                    FailureObject dependencyFailure = new FailureObject(
+                            "failure-dependency-deadlock",
+                            plan.goalSpec().goalId(),
+                            "scheduler",
+                            List.of(),
+                            List.of(),
+                            List.of("Check dependsOnOpIds and cycle in plan graph"),
+                            "dependency-deadlock",
+                            Map.of("pendingOps", pending)
+                    );
+                    if (executionPolicy.isRollbackOnFailure()) {
+                        rollbackExecutedOps(executedOps);
+                    }
+                    return new GoalExecutionResult(
+                            plan.goalSpec().goalId(),
+                            ExecutionStatus.FAILED,
+                            "Execution failed due to dependency deadlock",
+                            plan.llmUsed(),
+                            dependencyFailure,
+                            sortTrace(trace),
+                            Instant.now()
+                    );
                 }
 
-                // 失败：构建结构化失败对象，供修复器消费
-                failureObject = failureAnalyzer.buildFailure(plan.goalSpec().goalId(), currentOp, opResult, attempt);
-                if (attempt <= maxRetries) {
-                    // 未超过上限：在内存中补丁修复后继续尝试
-                    currentOp = repairPlanner.patchForRetry(currentOp, failureObject);
+                List<Future<OpRunOutcome>> futures = new ArrayList<>();
+                for (AtomicOp op : ready) {
+                    futures.add(executor.submit(new OpCallable(plan.goalSpec().goalId(), op, maxRetries)));
                 }
-            }
 
-            if (!success) {
-                // 某一步最终失败，按配置决定是否回滚历史成功步骤
-                if (executionPolicy.isRollbackOnFailure()) {
-                    rollbackExecutedOps(executedOps);
+                OpRunOutcome failed = null;
+                for (Future<OpRunOutcome> future : futures) {
+                    OpRunOutcome outcome;
+                    try {
+                        outcome = future.get();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    } catch (ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    trace.addAll(outcome.traceEntries());
+                    pending.remove(outcome.op().opId());
+                    if (outcome.success()) {
+                        completed.add(outcome.op().opId());
+                        executedOps.add(outcome.op());
+                    } else if (failed == null) {
+                        failed = outcome;
+                    }
                 }
-                return new GoalExecutionResult(
-                        plan.goalSpec().goalId(),
-                        ExecutionStatus.FAILED,
-                        "Execution failed after retries" + (executionPolicy.isRollbackOnFailure() ? " and rollback completed" : ""),
-                        plan.llmUsed(),
-                        failureObject,
-                        trace,
-                        Instant.now()
-                );
+
+                if (failed != null) {
+                    OpRunOutcome fallbackOutcome = runFallbackIfConfigured(plan.goalSpec().goalId(), failed.op(), opIndex, maxRetries);
+                    if (fallbackOutcome != null) {
+                        trace.addAll(fallbackOutcome.traceEntries());
+                        if (fallbackOutcome.success()) {
+                            completed.add(failed.op().opId());
+                            continue;
+                        }
+                    }
+
+                    if (executionPolicy.isRollbackOnFailure()) {
+                        rollbackExecutedOps(executedOps);
+                    }
+                    return new GoalExecutionResult(
+                            plan.goalSpec().goalId(),
+                            ExecutionStatus.FAILED,
+                            "Execution failed after retries" + (executionPolicy.isRollbackOnFailure() ? " and rollback completed" : ""),
+                            plan.llmUsed(),
+                            failed.failureObject(),
+                            sortTrace(trace),
+                            Instant.now()
+                    );
+                }
             }
+        } finally {
+            executor.shutdownNow();
         }
 
         return new GoalExecutionResult(
@@ -173,19 +195,131 @@ public class SemanticExecutionEngine {
                 "Goal converged to desired state",
                 plan.llmUsed(),
                 null,
-                trace,
+                sortTrace(trace),
                 Instant.now()
         );
     }
 
     private void rollbackExecutedOps(List<AtomicOp> executedOps) {
-        // 逆序回滚，确保依赖顺序与执行相反
         List<AtomicOp> reversed = new ArrayList<>(executedOps);
         Collections.reverse(reversed);
         for (AtomicOp op : reversed) {
             if (op.rollbackSupported()) {
                 capabilityRouter.rollback(op);
             }
+        }
+    }
+
+    private List<ExecutionTraceEntry> sortTrace(List<ExecutionTraceEntry> trace) {
+        return trace.stream()
+                .sorted(Comparator.comparing(ExecutionTraceEntry::timestamp))
+                .toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> dependenciesOf(AtomicOp op) {
+        Object raw = op.parameters().get("dependsOnOpIds");
+        if (raw instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
+        }
+        return List.of();
+    }
+
+    private boolean isBranchOnly(AtomicOp op) {
+        Object raw = op.parameters().get("branchOnly");
+        return raw != null && Boolean.parseBoolean(String.valueOf(raw));
+    }
+
+    private OpRunOutcome runFallbackIfConfigured(String goalId, AtomicOp failedOp, Map<String, AtomicOp> opIndex, int maxRetries) {
+        Object fallbackOpIdRaw = failedOp.parameters().get("onFailureOpId");
+        if (fallbackOpIdRaw == null) {
+            return null;
+        }
+        AtomicOp fallbackOp = opIndex.get(String.valueOf(fallbackOpIdRaw));
+        if (fallbackOp == null) {
+            return null;
+        }
+        return executeOp(goalId, fallbackOp, maxRetries);
+    }
+
+    private OpRunOutcome executeOp(String goalId, AtomicOp op, int maxRetries) {
+        if (operationAuditService.shouldShortCircuit(goalId, op)) {
+            return new OpRunOutcome(
+                    op,
+                    true,
+                    null,
+                    List.of(new ExecutionTraceEntry(
+                            goalId,
+                            op.opId(),
+                            op.type(),
+                            "audit-short-circuit",
+                            ExecutionStatus.SUCCEEDED,
+                            "Short-circuited by idempotency audit",
+                            Instant.now(),
+                            0,
+                            List.of()
+                    ))
+            );
+        }
+
+        List<ExecutionTraceEntry> entries = new ArrayList<>();
+        AtomicOp currentOp = op;
+        FailureObject failureObject = null;
+        for (int attempt = 1; attempt <= maxRetries + 1; attempt++) {
+            OpExecutionResult opResult = capabilityRouter.execute(currentOp);
+            entries.add(new ExecutionTraceEntry(
+                    goalId,
+                    currentOp.opId(),
+                    currentOp.type(),
+                    opResult.provider(),
+                    opResult.success() ? ExecutionStatus.SUCCEEDED : ExecutionStatus.FAILED,
+                    opResult.message(),
+                    Instant.now(),
+                    attempt,
+                    opResult.contextFrames()
+            ));
+            operationAuditService.record(
+                    goalId,
+                    currentOp,
+                    opResult.success() ? "SUCCEEDED" : "FAILED",
+                    opResult.provider(),
+                    attempt,
+                    opResult.message()
+            );
+            if (opResult.success()) {
+                return new OpRunOutcome(currentOp, true, null, entries);
+            }
+            failureObject = failureAnalyzer.buildFailure(goalId, currentOp, opResult, attempt);
+            if (attempt <= maxRetries) {
+                currentOp = repairPlanner.patchForRetry(currentOp, failureObject);
+            }
+        }
+        return new OpRunOutcome(currentOp, false, failureObject, entries);
+    }
+
+    private record OpRunOutcome(
+            AtomicOp op,
+            boolean success,
+            FailureObject failureObject,
+            List<ExecutionTraceEntry> traceEntries
+    ) {
+    }
+
+    private class OpCallable implements Callable<OpRunOutcome> {
+
+        private final String goalId;
+        private final AtomicOp op;
+        private final int maxRetries;
+
+        private OpCallable(String goalId, AtomicOp op, int maxRetries) {
+            this.goalId = goalId;
+            this.op = op;
+            this.maxRetries = maxRetries;
+        }
+
+        @Override
+        public OpRunOutcome call() {
+            return executeOp(goalId, op, maxRetries);
         }
     }
 }

@@ -11,6 +11,7 @@ public record PlanningBlueprint(
         List<AtomicOp> preRuntimeOps,
         List<String> warnings,
         boolean llmUsed,
-        String llmRationale
+        String llmRationale,
+        PlanGraph planGraph
 ) {
 }

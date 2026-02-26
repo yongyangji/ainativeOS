@@ -13,6 +13,8 @@ import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
 import com.ainativeos.service.SemanticKernelService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/goals")
@@ -44,19 +47,22 @@ public class GoalController {
     private final GoalTraceRepository goalTraceRepository;
     private final DesiredStateJobRepository desiredStateJobRepository;
     private final HealthCheckService healthCheckService;
+    private final ObjectMapper objectMapper;
 
     public GoalController(
             SemanticKernelService semanticKernelService,
             GoalExecutionRepository goalExecutionRepository,
             GoalTraceRepository goalTraceRepository,
             DesiredStateJobRepository desiredStateJobRepository,
-            HealthCheckService healthCheckService
+            HealthCheckService healthCheckService,
+            ObjectMapper objectMapper
     ) {
         this.semanticKernelService = semanticKernelService;
         this.goalExecutionRepository = goalExecutionRepository;
         this.goalTraceRepository = goalTraceRepository;
         this.desiredStateJobRepository = desiredStateJobRepository;
         this.healthCheckService = healthCheckService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/plan")
@@ -126,6 +132,40 @@ public class GoalController {
                 it.getAttempt(),
                 it.getTimestamp()
         )).toList();
+    }
+
+    @GetMapping("/{goalId}/replay")
+    public Map<String, Object> replay(@PathVariable String goalId) {
+        Optional<GoalExecutionEntity> latestExecutionOpt = goalExecutionRepository.findTop1ByGoalIdOrderByCreatedAtDesc(goalId);
+        List<GoalTraceEntity> traces = goalTraceRepository.findByGoalIdOrderByTimestampAsc(goalId);
+
+        Map<String, Object> planGraph = Map.of();
+        if (latestExecutionOpt.isPresent()) {
+            String planGraphJson = latestExecutionOpt.get().getPlanGraphJson();
+            if (planGraphJson != null && !planGraphJson.isBlank()) {
+                try {
+                    planGraph = objectMapper.readValue(planGraphJson, new TypeReference<Map<String, Object>>() {});
+                } catch (Exception ignored) {
+                    planGraph = Map.of("error", "plan_graph_deserialize_failed");
+                }
+            }
+        }
+
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("goalId", goalId);
+        response.put("latestExecutionId", latestExecutionOpt.map(GoalExecutionEntity::getId).orElse(null));
+        response.put("planGraph", planGraph);
+        response.put("trace", traces.stream().map(it -> Map.<String, Object>of(
+                "id", it.getId(),
+                "opId", it.getOpId(),
+                "opType", it.getOpType(),
+                "provider", it.getProvider(),
+                "status", it.getStatus(),
+                "message", it.getMessage(),
+                "attempt", it.getAttempt(),
+                "timestamp", it.getTimestamp()
+        )).toList());
+        return response;
     }
 
     @GetMapping("/reconcile-jobs")

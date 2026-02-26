@@ -9,6 +9,7 @@ import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
 import com.ainativeos.service.SemanticKernelService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -44,6 +45,9 @@ class GoalControllerTest {
     @Mock
     private HealthCheckService healthCheckService;
 
+    @Mock
+    private ObjectMapper objectMapper;
+
     @InjectMocks
     private GoalController goalController;
 
@@ -58,7 +62,7 @@ class GoalControllerTest {
                 "default"
         );
 
-        GoalPlan mockPlan = new GoalPlan(validGoalSpec, null, List.of(), "planner-v3", false);
+        GoalPlan mockPlan = new GoalPlan(validGoalSpec, null, List.of(), "planner-v3", false, Map.of());
         GoalExecutionResult expectedResult = new GoalExecutionResult(
                 "goal-test-001",
                 ExecutionStatus.SUCCEEDED,
@@ -113,7 +117,7 @@ class GoalControllerTest {
                 2,
                 "default"
         );
-        GoalPlan mockPlan = new GoalPlan(validGoalSpec, null, List.of(), "planner-v3", false);
+        GoalPlan mockPlan = new GoalPlan(validGoalSpec, null, List.of(), "planner-v3", false, Map.of());
         String errorMsg = "Execution failed";
 
         when(semanticKernelService.plan(validGoalSpec)).thenReturn(mockPlan);

@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 /**
@@ -95,13 +96,78 @@ public class DefaultGoalPlanner implements GoalPlanner {
             }
         }
 
+        List<String> runtimeDependsOn = ops.stream()
+                .filter(op -> !isBranchOnly(op))
+                .map(AtomicOp::opId)
+                .toList();
+        runtimeParams.put("dependsOnOpIds", runtimeDependsOn);
+        runtimeParams.put("branchOnly", false);
+
+        if (goalSpec.constraints() != null && goalSpec.constraints().containsKey("fallbackCommand")) {
+            Map<String, Object> fallbackParams = new HashMap<>(runtimeParams);
+            fallbackParams.put("command", goalSpec.constraints().get("fallbackCommand"));
+            fallbackParams.put("branchOnly", true);
+            fallbackParams.put("dependsOnOpIds", List.of());
+            ops.add(new AtomicOp(
+                    "op-fallback-apply",
+                    "RUNTIME_APPLY_DECLARATIVE_STATE",
+                    "Fallback apply branch when primary runtime apply fails",
+                    fallbackParams,
+                    true,
+                    true,
+                    defaultTimeout
+            ));
+            runtimeParams.put("onFailureOpId", "op-fallback-apply");
+        }
+
         ops.add(new AtomicOp("op-apply", "RUNTIME_APPLY_DECLARATIVE_STATE", "Apply desired state to runtime substrate", runtimeParams, true, true, defaultTimeout));
 
         // 5) 成功判据验证
-        ops.add(new AtomicOp("op-verify", "COMPUTE_VERIFY_SUCCESS", "Evaluate success criteria", Map.of(
-                "criteria", goalSpec.successCriteria()
-        ), true, false, 20));
+        Map<String, Object> verifyParams = new HashMap<>();
+        verifyParams.put("criteria", goalSpec.successCriteria());
+        verifyParams.put("dependsOnOpIds", List.of("op-apply"));
+        verifyParams.put("branchOnly", false);
+        ops.add(new AtomicOp("op-verify", "COMPUTE_VERIFY_SUCCESS", "Evaluate success criteria", verifyParams, true, false, 20));
 
-        return new GoalPlan(goalSpec, desiredState, ops, "planner-v3", blueprint.llmUsed());
+        Map<String, Object> planGraphSnapshot = buildPlanGraphSnapshot(ops);
+        return new GoalPlan(goalSpec, desiredState, ops, "planner-v3", blueprint.llmUsed(), planGraphSnapshot);
+    }
+
+    private Map<String, Object> buildPlanGraphSnapshot(List<AtomicOp> ops) {
+        List<Map<String, Object>> nodes = ops.stream().map(op -> {
+            List<String> dependsOn = toStringList(op.parameters().get("dependsOnOpIds"));
+            String onFailure = op.parameters().get("onFailureOpId") == null
+                    ? ""
+                    : String.valueOf(op.parameters().get("onFailureOpId"));
+            boolean branchOnly = isBranchOnly(op);
+            Map<String, Object> node = new HashMap<>();
+            node.put("opId", op.opId());
+            node.put("opType", op.type());
+            node.put("dependsOnOpIds", dependsOn);
+            node.put("onFailureOpId", onFailure);
+            node.put("branchOnly", branchOnly);
+            return node;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> snapshot = new HashMap<>();
+        snapshot.put("nodes", nodes);
+        snapshot.put("format", "planner-v4-dag");
+        return snapshot;
+    }
+
+    private boolean isBranchOnly(AtomicOp op) {
+        Object raw = op.parameters().get("branchOnly");
+        if (raw == null) {
+            return false;
+        }
+        return Boolean.parseBoolean(String.valueOf(raw));
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> toStringList(Object raw) {
+        if (raw instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
+        }
+        return List.of();
     }
 }
