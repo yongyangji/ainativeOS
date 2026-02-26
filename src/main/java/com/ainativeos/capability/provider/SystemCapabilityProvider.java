@@ -35,6 +35,11 @@ public class SystemCapabilityProvider implements CapabilityProvider {
     }
 
     @Override
+    public List<String> advertisedOpTypes() {
+        return List.of("SYSTEM_PACKAGE_INSTALL", "SYSTEM_SERVICE_STATUS", "SYSTEM_EXECUTE");
+    }
+
+    @Override
     public OpExecutionResult execute(AtomicOp atomicOp) {
         String command = resolveCommand(atomicOp);
         CommandExecutionResult result = localCommandExecutor.execute(buildShellCommand(command), atomicOp.timeoutSeconds());
@@ -107,4 +112,3 @@ public class SystemCapabilityProvider implements CapabilityProvider {
         return compact.length() > 160 ? compact.substring(0, 160) + "..." : compact;
     }
 }
-

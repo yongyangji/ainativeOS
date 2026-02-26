@@ -28,6 +28,11 @@ public class NetworkCapabilityProvider implements CapabilityProvider {
     }
 
     @Override
+    public List<String> advertisedOpTypes() {
+        return List.of("NETWORK_HTTP_REQUEST", "NETWORK_DNS_LOOKUP");
+    }
+
+    @Override
     public OpExecutionResult execute(AtomicOp atomicOp) {
         ContextFrame frame = new ContextFrame(
                 "network",

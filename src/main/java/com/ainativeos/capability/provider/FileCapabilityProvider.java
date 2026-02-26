@@ -28,6 +28,11 @@ public class FileCapabilityProvider implements CapabilityProvider {
     }
 
     @Override
+    public List<String> advertisedOpTypes() {
+        return List.of("FILE_READ", "FILE_WRITE", "FILE_PATCH");
+    }
+
+    @Override
     public OpExecutionResult execute(AtomicOp atomicOp) {
         ContextFrame frame = new ContextFrame(
                 "file",

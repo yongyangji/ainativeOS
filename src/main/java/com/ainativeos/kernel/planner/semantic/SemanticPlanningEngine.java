@@ -55,7 +55,8 @@ public class SemanticPlanningEngine {
             String opId = nodeToOpId.get(node.nodeId());
             boolean rollbackSupported = node.opType().startsWith("SYSTEM_")
                     || node.opType().startsWith("K8S_")
-                    || node.opType().startsWith("CLOUD_");
+                    || node.opType().startsWith("CLOUD_")
+                    || node.opType().startsWith("DOCKER_");
             Map<String, Object> params = new HashMap<>(node.params());
             params.put("graphNodeId", node.nodeId());
             params.put("dependsOnOpIds", node.dependsOnNodeIds().stream()

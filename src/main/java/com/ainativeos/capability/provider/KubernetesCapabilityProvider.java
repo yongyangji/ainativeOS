@@ -35,6 +35,11 @@ public class KubernetesCapabilityProvider implements CapabilityProvider {
     }
 
     @Override
+    public List<String> advertisedOpTypes() {
+        return List.of("K8S_APPLY_MANIFEST", "K8S_VERIFY_DEPLOYMENT", "K8S_ROLLBACK_DEPLOYMENT", "K8S_EXECUTE");
+    }
+
+    @Override
     public OpExecutionResult execute(AtomicOp atomicOp) {
         String command = resolveCommand(atomicOp);
         CommandExecutionResult result = localCommandExecutor.execute(List.of("sh", "-lc", command), atomicOp.timeoutSeconds());
@@ -59,6 +64,18 @@ public class KubernetesCapabilityProvider implements CapabilityProvider {
         return new OpExecutionResult(true, providerName(), "K8s command success", List.of(frame), null, null);
     }
 
+    @Override
+    public void rollback(AtomicOp atomicOp) {
+        String deploymentName = value(atomicOp, "deploymentName");
+        String namespace = value(atomicOp, "namespace");
+        if (deploymentName == null) {
+            return;
+        }
+        String ns = (namespace == null) ? "" : (" -n " + namespace);
+        String command = "kubectl rollout undo deployment/" + deploymentName + ns;
+        localCommandExecutor.execute(List.of("sh", "-lc", command), Math.max(30, atomicOp.timeoutSeconds()));
+    }
+
     private String resolveCommand(AtomicOp op) {
         if ("K8S_APPLY_MANIFEST".equals(op.type())) {
             String path = value(op, "manifestPath");
@@ -66,6 +83,25 @@ public class KubernetesCapabilityProvider implements CapabilityProvider {
                 return "echo missing manifestPath";
             }
             return "kubectl apply -f " + path;
+        }
+        if ("K8S_VERIFY_DEPLOYMENT".equals(op.type())) {
+            String deployment = value(op, "deploymentName");
+            if (deployment == null) {
+                return "echo missing deploymentName";
+            }
+            String namespace = value(op, "namespace");
+            int timeout = parseIntOrDefault(value(op, "verifyTimeoutSeconds"), 120);
+            String ns = namespace == null ? "" : (" -n " + namespace);
+            return "kubectl rollout status deployment/" + deployment + ns + " --timeout=" + timeout + "s";
+        }
+        if ("K8S_ROLLBACK_DEPLOYMENT".equals(op.type())) {
+            String deployment = value(op, "deploymentName");
+            if (deployment == null) {
+                return "echo missing deploymentName";
+            }
+            String namespace = value(op, "namespace");
+            String ns = namespace == null ? "" : (" -n " + namespace);
+            return "kubectl rollout undo deployment/" + deployment + ns;
         }
         return value(op, "command") != null ? value(op, "command") : "kubectl get pods -A";
     }
@@ -86,5 +122,15 @@ public class KubernetesCapabilityProvider implements CapabilityProvider {
         String compact = content.replace('\n', ' ').replace('\r', ' ').trim();
         return compact.length() > 160 ? compact.substring(0, 160) + "..." : compact;
     }
-}
 
+    private int parseIntOrDefault(String val, int defaultValue) {
+        if (val == null) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(val);
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
+    }
+}

@@ -4,7 +4,9 @@ import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.OpExecutionResult;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 /**
@@ -45,5 +47,19 @@ public class CapabilityRouter {
                 .filter(p -> p.supports(op.type()))
                 .findFirst()
                 .ifPresent(p -> p.rollback(op));
+    }
+
+    public List<Map<String, Object>> capabilityDictionary() {
+        return providers.stream().map(provider -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("provider", provider.providerName());
+            item.put("supportedOps", provider.advertisedOpTypes());
+            item.put("className", provider.getClass().getName());
+            Map<String, Object> metadata = provider.metadata();
+            if (metadata != null && !metadata.isEmpty()) {
+                item.put("metadata", metadata);
+            }
+            return item;
+        }).toList();
     }
 }

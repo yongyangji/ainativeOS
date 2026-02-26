@@ -35,6 +35,11 @@ public class CloudCliCapabilityProvider implements CapabilityProvider {
     }
 
     @Override
+    public List<String> advertisedOpTypes() {
+        return List.of("CLOUD_EXECUTE");
+    }
+
+    @Override
     public OpExecutionResult execute(AtomicOp atomicOp) {
         String command = value(atomicOp, "cloudCommand");
         if (command == null) {
@@ -82,4 +87,3 @@ public class CloudCliCapabilityProvider implements CapabilityProvider {
         return compact.length() > 160 ? compact.substring(0, 160) + "..." : compact;
     }
 }
-

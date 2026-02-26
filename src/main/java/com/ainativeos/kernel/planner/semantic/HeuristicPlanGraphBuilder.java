@@ -38,6 +38,17 @@ public class HeuristicPlanGraphBuilder implements PlanGraphBuilder {
             nodes.add(new PlanNode("node-k8s-apply", "K8S_APPLY_MANIFEST", "Apply kubernetes manifest", Map.of(
                     "manifestPath", goalSpec.constraints().get("k8sManifestPath")
             ), List.of("node-policy", "node-capability"), null, false));
+            if (goalSpec.constraints().containsKey("k8sDeploymentName")) {
+                nodes.add(new PlanNode("node-k8s-verify", "K8S_VERIFY_DEPLOYMENT", "Verify kubernetes deployment rollout", Map.of(
+                        "deploymentName", goalSpec.constraints().get("k8sDeploymentName"),
+                        "namespace", goalSpec.constraints().getOrDefault("k8sNamespace", "default"),
+                        "verifyTimeoutSeconds", goalSpec.constraints().getOrDefault("k8sVerifyTimeoutSeconds", "120")
+                ), List.of("node-k8s-apply"), "node-k8s-rollback", false));
+                nodes.add(new PlanNode("node-k8s-rollback", "K8S_ROLLBACK_DEPLOYMENT", "Rollback kubernetes deployment", Map.of(
+                        "deploymentName", goalSpec.constraints().get("k8sDeploymentName"),
+                        "namespace", goalSpec.constraints().getOrDefault("k8sNamespace", "default")
+                ), List.of(), null, true));
+            }
         }
 
         if (goalSpec.constraints() != null && goalSpec.constraints().containsKey("cloudCommand")) {
@@ -45,6 +56,21 @@ public class HeuristicPlanGraphBuilder implements PlanGraphBuilder {
                     "cloudProvider", goalSpec.constraints().getOrDefault("cloudProvider", "generic"),
                     "cloudCommand", goalSpec.constraints().get("cloudCommand")
             ), List.of("node-policy", "node-capability"), null, false));
+        }
+
+        if (goalSpec.constraints() != null && goalSpec.constraints().containsKey("dockerImage")) {
+            String containerName = goalSpec.constraints().getOrDefault("dockerContainerName", "ainativeos-workload");
+            nodes.add(new PlanNode("node-docker-run", "DOCKER_RUN_IMAGE", "Run docker image", Map.of(
+                    "image", goalSpec.constraints().get("dockerImage"),
+                    "containerName", containerName,
+                    "runArgs", goalSpec.constraints().getOrDefault("dockerRunArgs", "")
+            ), List.of("node-policy", "node-capability"), "node-docker-rollback", false));
+            nodes.add(new PlanNode("node-docker-verify", "DOCKER_VERIFY_CONTAINER", "Verify docker container running", Map.of(
+                    "containerName", containerName
+            ), List.of("node-docker-run"), "node-docker-rollback", false));
+            nodes.add(new PlanNode("node-docker-rollback", "DOCKER_ROLLBACK_CONTAINER", "Rollback docker container", Map.of(
+                    "containerName", containerName
+            ), List.of(), null, true));
         }
 
         return new PlanGraph(nodes);

@@ -1,6 +1,7 @@
 package com.ainativeos.api;
 
 import com.ainativeos.api.dto.ExecutionSummaryResponse;
+import com.ainativeos.capability.CapabilityRouter;
 import com.ainativeos.api.dto.TraceEventResponse;
 import com.ainativeos.domain.GoalExecutionResult;
 import com.ainativeos.domain.GoalPlan;
@@ -50,6 +51,7 @@ public class GoalController {
     private final HealthCheckService healthCheckService;
     private final ObjectMapper objectMapper;
     private final RuntimeCommandDispatcher runtimeCommandDispatcher;
+    private final CapabilityRouter capabilityRouter;
 
     public GoalController(
             SemanticKernelService semanticKernelService,
@@ -58,7 +60,8 @@ public class GoalController {
             DesiredStateJobRepository desiredStateJobRepository,
             HealthCheckService healthCheckService,
             ObjectMapper objectMapper,
-            RuntimeCommandDispatcher runtimeCommandDispatcher
+            RuntimeCommandDispatcher runtimeCommandDispatcher,
+            CapabilityRouter capabilityRouter
     ) {
         this.semanticKernelService = semanticKernelService;
         this.goalExecutionRepository = goalExecutionRepository;
@@ -67,6 +70,7 @@ public class GoalController {
         this.healthCheckService = healthCheckService;
         this.objectMapper = objectMapper;
         this.runtimeCommandDispatcher = runtimeCommandDispatcher;
+        this.capabilityRouter = capabilityRouter;
     }
 
     @PostMapping("/plan")
@@ -209,5 +213,10 @@ public class GoalController {
     @GetMapping("/runtime-adapters")
     public List<Map<String, Object>> runtimeAdapters() {
         return runtimeCommandDispatcher.registeredAdapters();
+    }
+
+    @GetMapping("/capabilities")
+    public List<Map<String, Object>> capabilities() {
+        return capabilityRouter.capabilityDictionary();
     }
 }

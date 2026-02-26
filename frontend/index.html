@@ -142,6 +142,7 @@
             <button class="secondary" onclick="callExecutions()">GET executions</button>
             <button class="secondary" onclick="callTrace()">GET trace</button>
             <button class="secondary" onclick="callReplay()">GET replay</button>
+            <button class="secondary" onclick="callCapabilities()">GET capabilities</button>
           </div>
         </div>
       </div>
@@ -296,6 +297,17 @@
       const r = await request("/api/goals/" + encodeURIComponent(goalId) + "/replay");
       append("GET /api/goals/" + goalId + "/replay", r);
       setStatus("replay 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callCapabilities() {
+    try {
+      setStatus("请求中...");
+      const r = await request("/api/goals/capabilities");
+      append("GET /api/goals/capabilities", r);
+      setStatus("capabilities 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
     } catch (e) {
       setStatus(e.message, "err");
     }

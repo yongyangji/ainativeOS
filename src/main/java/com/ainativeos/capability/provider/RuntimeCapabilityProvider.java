@@ -48,6 +48,11 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
     }
 
     @Override
+    public List<String> advertisedOpTypes() {
+        return List.of("RUNTIME_APPLY_DECLARATIVE_STATE");
+    }
+
+    @Override
     public OpExecutionResult execute(AtomicOp atomicOp) {
         // 测试开关：用于主动制造首轮失败，验证自愈重试能力
         boolean simulateFailure = Boolean.TRUE.equals(atomicOp.parameters().get("simulateFailure"));

@@ -3,6 +3,9 @@ package com.ainativeos.capability;
 import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.OpExecutionResult;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * 能力 Provider 抽象。
  * <p>
@@ -17,5 +20,13 @@ public interface CapabilityProvider {
 
     default void rollback(AtomicOp atomicOp) {
         // best-effort rollback in MVP
+    }
+
+    default List<String> advertisedOpTypes() {
+        return List.of();
+    }
+
+    default Map<String, Object> metadata() {
+        return Map.of();
     }
 }

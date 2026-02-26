@@ -52,6 +52,7 @@ AI-Native 统一操作模型，核心能力包括：
 - `GET /api/goals/{goalId}/replay`
 - `GET /api/goals/reconcile-jobs?goalId=...`
 - `GET /api/goals/runtime-adapters`
+- `GET /api/goals/capabilities`
 - `GET /api/goals/health`
 
 ## 接口示例
@@ -288,6 +289,26 @@ curl -s "http://127.0.0.1:8080/api/goals/goal-ui-001/replay"
 }
 ```
 
+### 10）查询平台能力字典
+请求：
+```bash
+curl -s "http://127.0.0.1:8080/api/goals/capabilities"
+```
+
+响应（节选）：
+```json
+[
+  {
+    "provider": "k8s-provider",
+    "supportedOps": ["K8S_APPLY_MANIFEST","K8S_VERIFY_DEPLOYMENT","K8S_ROLLBACK_DEPLOYMENT","K8S_EXECUTE"]
+  },
+  {
+    "provider": "docker-provider",
+    "supportedOps": ["DOCKER_RUN_IMAGE","DOCKER_VERIFY_CONTAINER","DOCKER_ROLLBACK_CONTAINER","DOCKER_EXECUTE"]
+  }
+]
+```
+
 响应示例：
 ```json
 [
@@ -324,6 +345,11 @@ curl -s "http://127.0.0.1:8080/api/goals/runtime-adapters"
   {"adapterId":"local-shell","priority":200,"className":"com.ainativeos.runtime.spi.LocalRuntimeAdapter"}
 ]
 ```
+
+### Docker/K8s Provider（EPIC-5）
+- Docker provider：支持 `DOCKER_RUN_IMAGE`、`DOCKER_VERIFY_CONTAINER`、`DOCKER_ROLLBACK_CONTAINER`
+- Kubernetes provider：支持 `K8S_APPLY_MANIFEST`、`K8S_VERIFY_DEPLOYMENT`、`K8S_ROLLBACK_DEPLOYMENT`
+- 可通过 `GET /api/goals/capabilities` 查询当前平台能力字典
 
 ### 本地命令模式
 - 当传入 `constraints.runtimeCommand` 时，运行时会在本地 shell 执行命令。
@@ -554,6 +580,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 - `GET /api/goals/{goalId}/trace`
 - `GET /api/goals/{goalId}/replay`
 - `GET /api/goals/reconcile-jobs`
+- `GET /api/goals/capabilities`
 
 ## 常见问题排障
 

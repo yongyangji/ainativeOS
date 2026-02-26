@@ -28,6 +28,11 @@ public class ComputeCapabilityProvider implements CapabilityProvider {
     }
 
     @Override
+    public List<String> advertisedOpTypes() {
+        return List.of("COMPUTE_PARSE_INTENT", "COMPUTE_POLICY_EVAL", "COMPUTE_RESOLVE_CAPABILITY", "COMPUTE_VERIFY_SUCCESS");
+    }
+
+    @Override
     public OpExecutionResult execute(AtomicOp atomicOp) {
         ContextFrame frame = new ContextFrame(
                 "compute",
