@@ -394,6 +394,14 @@ GoalExecutionResponse result = client.execute(request);
 List<TraceEventItem> trace = client.trace(request.goalId());
 ```
 
+### 测试与 CI/CD（EPIC-8）
+- 契约测试：`GoalApiContractTest`（校验 `/plan`、`/execute`、`/capabilities` 响应字段契约）
+- E2E 冒烟：`GoalExecutionE2ETest`（mock LLM + real runtime provider）
+- CI 流水线：`.github/workflows/ci.yml`
+  - Java 21 + Maven Test + Package + Docker Build
+- Release 流水线：`.github/workflows/release.yml`
+  - Tag 触发（`v*`），自动打包 jar、构建镜像、发布 GitHub Release
+
 ### 本地命令模式
 - 当传入 `constraints.runtimeCommand` 时，运行时会在本地 shell 执行命令。
 - Windows：`powershell -Command <runtimeCommand>`
