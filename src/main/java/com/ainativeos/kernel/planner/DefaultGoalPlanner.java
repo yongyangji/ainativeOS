@@ -43,7 +43,8 @@ public class DefaultGoalPlanner implements GoalPlanner {
         resources.put("targetIntent", goalSpec.naturalLanguageIntent());
         DesiredState desiredState = new DesiredState("state-" + goalSpec.goalId(), "Converge declared runtime state", resources);
 
-        int defaultTimeout = executionPolicy.getDefaultOpTimeoutSeconds();
+        ExecutionPolicyProperties.ResolvedExecutionPolicy resolvedPolicy = executionPolicy.resolveProfile(goalSpec.normalizedPolicyProfile());
+        int defaultTimeout = resolvedPolicy.opTimeoutSeconds();
         // 通过语义规划引擎生成前置操作（parse/policy/capability + adapter specific ops）
         PlanningBlueprint blueprint = semanticPlanningEngine.build(goalSpec, defaultTimeout);
         List<AtomicOp> ops = new ArrayList<>(blueprint.preRuntimeOps());
@@ -54,6 +55,10 @@ public class DefaultGoalPlanner implements GoalPlanner {
         runtimeParams.put("planningWarnings", blueprint.warnings());
         runtimeParams.put("llmUsed", blueprint.llmUsed());
         runtimeParams.put("llmRationale", blueprint.llmRationale());
+        runtimeParams.put("policyProfile", resolvedPolicy.profile());
+        runtimeParams.put("policyMaxRetries", resolvedPolicy.maxRetries());
+        runtimeParams.put("policyRollbackOnFailure", resolvedPolicy.rollbackOnFailure());
+        runtimeParams.put("policyOpTimeoutSeconds", resolvedPolicy.opTimeoutSeconds());
         if (goalSpec.constraints() != null) {
             if ("true".equalsIgnoreCase(goalSpec.constraints().getOrDefault("simulateFailure", "false"))) {
                 runtimeParams.put("simulateFailure", true);

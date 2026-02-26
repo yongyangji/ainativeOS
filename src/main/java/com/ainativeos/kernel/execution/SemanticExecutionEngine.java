@@ -1,4 +1,4 @@
-﻿package com.ainativeos.kernel.execution;
+package com.ainativeos.kernel.execution;
 
 import com.ainativeos.audit.OperationAuditService;
 import com.ainativeos.capability.CapabilityRouter;
@@ -12,6 +12,7 @@ import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.OpExecutionResult;
 import com.ainativeos.kernel.healing.FailureAnalyzer;
 import com.ainativeos.kernel.healing.RepairPlanner;
+import com.ainativeos.kernel.policy.ExecutionCircuitBreakerService;
 import com.ainativeos.kernel.policy.PolicyDecision;
 import com.ainativeos.kernel.policy.PolicyEngine;
 import org.springframework.stereotype.Component;
@@ -40,6 +41,7 @@ public class SemanticExecutionEngine {
     private final RepairPlanner repairPlanner;
     private final ExecutionPolicyProperties executionPolicy;
     private final OperationAuditService operationAuditService;
+    private final ExecutionCircuitBreakerService circuitBreakerService;
 
     public SemanticExecutionEngine(
             CapabilityRouter capabilityRouter,
@@ -47,7 +49,8 @@ public class SemanticExecutionEngine {
             FailureAnalyzer failureAnalyzer,
             RepairPlanner repairPlanner,
             ExecutionPolicyProperties executionPolicy,
-            OperationAuditService operationAuditService
+            OperationAuditService operationAuditService,
+            ExecutionCircuitBreakerService circuitBreakerService
     ) {
         this.capabilityRouter = capabilityRouter;
         this.policyEngine = policyEngine;
@@ -55,21 +58,35 @@ public class SemanticExecutionEngine {
         this.repairPlanner = repairPlanner;
         this.executionPolicy = executionPolicy;
         this.operationAuditService = operationAuditService;
+        this.circuitBreakerService = circuitBreakerService;
     }
 
     public GoalExecutionResult run(GoalPlan plan) {
+        ExecutionPolicyProperties.ResolvedExecutionPolicy resolvedPolicy = executionPolicy.resolveProfile(
+                plan.goalSpec().normalizedPolicyProfile()
+        );
         PolicyDecision decision = policyEngine.evaluate(plan);
         List<ExecutionTraceEntry> trace = new ArrayList<>();
         List<AtomicOp> executedOps = new ArrayList<>();
 
         if (!decision.allowed()) {
+            FailureObject blockedFailure = new FailureObject(
+                    "failure-policy-blocked",
+                    plan.goalSpec().goalId(),
+                    "policy-gate",
+                    List.of(),
+                    List.of(),
+                    List.of("Adjust policy profile or constraints"),
+                    "policy-blocked",
+                    decision.details()
+            );
             trace.add(new ExecutionTraceEntry(
                     plan.goalSpec().goalId(),
                     "policy-gate",
                     "POLICY",
                     "policy-engine",
                     ExecutionStatus.BLOCKED,
-                    decision.reason(),
+                    decision.reason() + " (" + decision.policyId() + ")",
                     Instant.now(),
                     0,
                     List.of()
@@ -79,7 +96,7 @@ public class SemanticExecutionEngine {
                     ExecutionStatus.BLOCKED,
                     decision.reason(),
                     plan.llmUsed(),
-                    null,
+                    blockedFailure,
                     trace,
                     Instant.now()
             );
@@ -87,7 +104,7 @@ public class SemanticExecutionEngine {
 
         int maxRetries = plan.goalSpec().maxRetries() > 0
                 ? plan.goalSpec().maxRetries()
-                : executionPolicy.getDefaultMaxRetries();
+                : resolvedPolicy.maxRetries();
 
         Map<String, AtomicOp> opIndex = new HashMap<>();
         Set<String> pending = new HashSet<>();
@@ -120,9 +137,14 @@ public class SemanticExecutionEngine {
                             "dependency-deadlock",
                             Map.of("pendingOps", pending)
                     );
-                    if (executionPolicy.isRollbackOnFailure()) {
+                    if (resolvedPolicy.rollbackOnFailure()) {
                         rollbackExecutedOps(executedOps);
                     }
+                    circuitBreakerService.recordFailure(
+                            resolvedPolicy.profile(),
+                            resolvedPolicy.circuitBreakerFailureThreshold(),
+                            resolvedPolicy.circuitBreakerOpenSeconds()
+                    );
                     return new GoalExecutionResult(
                             plan.goalSpec().goalId(),
                             ExecutionStatus.FAILED,
@@ -171,13 +193,18 @@ public class SemanticExecutionEngine {
                         }
                     }
 
-                    if (executionPolicy.isRollbackOnFailure()) {
+                    if (resolvedPolicy.rollbackOnFailure()) {
                         rollbackExecutedOps(executedOps);
                     }
+                    circuitBreakerService.recordFailure(
+                            resolvedPolicy.profile(),
+                            resolvedPolicy.circuitBreakerFailureThreshold(),
+                            resolvedPolicy.circuitBreakerOpenSeconds()
+                    );
                     return new GoalExecutionResult(
                             plan.goalSpec().goalId(),
                             ExecutionStatus.FAILED,
-                            "Execution failed after retries" + (executionPolicy.isRollbackOnFailure() ? " and rollback completed" : ""),
+                            "Execution failed after retries" + (resolvedPolicy.rollbackOnFailure() ? " and rollback completed" : ""),
                             plan.llmUsed(),
                             failed.failureObject(),
                             sortTrace(trace),
@@ -188,6 +215,8 @@ public class SemanticExecutionEngine {
         } finally {
             executor.shutdownNow();
         }
+
+        circuitBreakerService.recordSuccess(resolvedPolicy.profile());
 
         return new GoalExecutionResult(
                 plan.goalSpec().goalId(),

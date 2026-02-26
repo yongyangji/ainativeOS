@@ -4,6 +4,8 @@ import com.ainativeos.capability.CapabilityProvider;
 import com.ainativeos.kernel.execution.SemanticExecutionEngine;
 import com.ainativeos.kernel.healing.FailureAnalyzer;
 import com.ainativeos.kernel.healing.RepairPlanner;
+import com.ainativeos.kernel.policy.ExecutionCircuitBreakerService;
+import com.ainativeos.kernel.policy.TaskRateLimiterService;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.kernel.planner.GoalPlanner;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,6 +35,8 @@ public class HealthCheckService {
     private final FailureAnalyzer failureAnalyzer;
     private final RepairPlanner repairPlanner;
     private final DesiredStateJobRepository desiredStateJobRepository;
+    private final ExecutionCircuitBreakerService circuitBreakerService;
+    private final TaskRateLimiterService taskRateLimiterService;
 
     public HealthCheckService(
             JdbcTemplate jdbcTemplate,
@@ -41,7 +45,9 @@ public class HealthCheckService {
             List<CapabilityProvider> capabilityProviders,
             FailureAnalyzer failureAnalyzer,
             RepairPlanner repairPlanner,
-            DesiredStateJobRepository desiredStateJobRepository
+            DesiredStateJobRepository desiredStateJobRepository,
+            ExecutionCircuitBreakerService circuitBreakerService,
+            TaskRateLimiterService taskRateLimiterService
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.goalPlanner = goalPlanner;
@@ -50,6 +56,8 @@ public class HealthCheckService {
         this.failureAnalyzer = failureAnalyzer;
         this.repairPlanner = repairPlanner;
         this.desiredStateJobRepository = desiredStateJobRepository;
+        this.circuitBreakerService = circuitBreakerService;
+        this.taskRateLimiterService = taskRateLimiterService;
     }
 
     public Map<String, Object> check() {
@@ -63,19 +71,22 @@ public class HealthCheckService {
         String capabilityFabricStatus = checkCapabilityFabric();
         String selfHealingStatus = checkSelfHealing();
         String reconcileControllerStatus = checkReconcileController();
+        String policyCenterStatus = checkPolicyCenter();
 
         response.put("database", dbStatus);
         response.put("semanticKernel", semanticKernelStatus);
         response.put("capabilityFabric", capabilityFabricStatus);
         response.put("selfHealingVfs", selfHealingStatus);
         response.put("reconcileController", reconcileControllerStatus);
+        response.put("policyCenter", policyCenterStatus);
 
         // 总体状态：全部 ready 为 UP，否则标记为 DEGRADED
         boolean healthy = "ready".equals(dbStatus)
                 && "ready".equals(semanticKernelStatus)
                 && "ready".equals(capabilityFabricStatus)
                 && "ready".equals(selfHealingStatus)
-                && "ready".equals(reconcileControllerStatus);
+                && "ready".equals(reconcileControllerStatus)
+                && "ready".equals(policyCenterStatus);
         response.put("status", healthy ? "UP" : "DEGRADED");
         return response;
     }
@@ -109,5 +120,9 @@ public class HealthCheckService {
 
     private String checkReconcileController() {
         return desiredStateJobRepository != null ? "ready" : "degraded";
+    }
+
+    private String checkPolicyCenter() {
+        return circuitBreakerService != null && taskRateLimiterService != null ? "ready" : "degraded";
     }
 }

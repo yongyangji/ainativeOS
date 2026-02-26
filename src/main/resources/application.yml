@@ -24,6 +24,24 @@ ainativeos:
     default-max-retries: ${DEFAULT_MAX_RETRIES:2}
     rollback-on-failure: ${ROLLBACK_ON_FAILURE:true}
     default-op-timeout-seconds: ${DEFAULT_OP_TIMEOUT_SECONDS:60}
+    circuit-breaker-failure-threshold: ${CIRCUIT_BREAKER_FAILURE_THRESHOLD:3}
+    circuit-breaker-open-seconds: ${CIRCUIT_BREAKER_OPEN_SECONDS:60}
+    rate-limit-per-minute: ${RATE_LIMIT_PER_MINUTE:120}
+    profiles:
+      strict:
+        max-retries: ${STRICT_MAX_RETRIES:1}
+        rollback-on-failure: ${STRICT_ROLLBACK_ON_FAILURE:true}
+        op-timeout-seconds: ${STRICT_OP_TIMEOUT_SECONDS:45}
+        circuit-breaker-failure-threshold: ${STRICT_CIRCUIT_BREAKER_FAILURE_THRESHOLD:2}
+        circuit-breaker-open-seconds: ${STRICT_CIRCUIT_BREAKER_OPEN_SECONDS:120}
+        rate-limit-per-minute: ${STRICT_RATE_LIMIT_PER_MINUTE:60}
+      relaxed:
+        max-retries: ${RELAXED_MAX_RETRIES:4}
+        rollback-on-failure: ${RELAXED_ROLLBACK_ON_FAILURE:true}
+        op-timeout-seconds: ${RELAXED_OP_TIMEOUT_SECONDS:120}
+        circuit-breaker-failure-threshold: ${RELAXED_CIRCUIT_BREAKER_FAILURE_THRESHOLD:5}
+        circuit-breaker-open-seconds: ${RELAXED_CIRCUIT_BREAKER_OPEN_SECONDS:30}
+        rate-limit-per-minute: ${RELAXED_RATE_LIMIT_PER_MINUTE:300}
   llm:
     enabled: ${LLM_ENABLED:false}
     provider: ${LLM_PROVIDER:openai}

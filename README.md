@@ -38,6 +38,7 @@ AI-Native 统一操作模型，核心能力包括：
 - 架构文档升级为中英双语并新增 roadmap/backlog 文档。
 - 执行引擎升级为 DAG 依赖调度：支持无依赖节点并行执行与失败 fallback 分支。
 - 计划图快照已持久化到执行记录，支持按 `goalId` 回放。
+- 策略中心升级：支持 `policyProfile` 的重试/超时/回滚策略、执行级熔断、任务级限流。
 
 ## API 列表
 - `POST /api/goals/plan`
@@ -384,6 +385,29 @@ LLM_ENDPOINT=https://api.deepseek.com/chat/completions
 LLM_API_KEY=your-deepseek-api-key
 LLM_MODEL=deepseek-chat
 LLM_TIMEOUT_SECONDS=30
+```
+
+执行策略示例（可按 profile 覆盖）：
+```yaml
+ainativeos:
+  execution:
+    default-max-retries: 2
+    rollback-on-failure: true
+    default-op-timeout-seconds: 60
+    circuit-breaker-failure-threshold: 3
+    circuit-breaker-open-seconds: 60
+    rate-limit-per-minute: 120
+    profiles:
+      strict:
+        max-retries: 1
+        op-timeout-seconds: 45
+        circuit-breaker-failure-threshold: 2
+        rate-limit-per-minute: 60
+      relaxed:
+        max-retries: 4
+        op-timeout-seconds: 120
+        circuit-breaker-failure-threshold: 5
+        rate-limit-per-minute: 300
 ```
 
 生效验证：
