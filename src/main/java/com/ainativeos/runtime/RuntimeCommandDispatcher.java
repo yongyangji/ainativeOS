@@ -1,7 +1,13 @@
 package com.ainativeos.runtime;
 
+import com.ainativeos.runtime.spi.RuntimeAdapter;
+import com.ainativeos.runtime.spi.RuntimeExecutionContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,60 +18,54 @@ import java.util.Map;
 @Component
 public class RuntimeCommandDispatcher {
 
-    private final LocalCommandExecutor localCommandExecutor;
-    private final SshCommandExecutor sshCommandExecutor;
+    private static final Logger log = LoggerFactory.getLogger(RuntimeCommandDispatcher.class);
+    private final List<RuntimeAdapter> runtimeAdapters;
 
-    public RuntimeCommandDispatcher(LocalCommandExecutor localCommandExecutor, SshCommandExecutor sshCommandExecutor) {
-        this.localCommandExecutor = localCommandExecutor;
-        this.sshCommandExecutor = sshCommandExecutor;
+    public RuntimeCommandDispatcher(List<RuntimeAdapter> runtimeAdapters) {
+        this.runtimeAdapters = runtimeAdapters.stream()
+                .sorted(Comparator.comparingInt(RuntimeAdapter::priority))
+                .toList();
+        log.info("Runtime adapters registered: {}", this.runtimeAdapters.stream().map(RuntimeAdapter::adapterId).toList());
     }
 
     public CommandExecutionResult execute(Map<String, Object> params, String command, int timeoutSeconds) {
-        String remoteHost = value(params, "remoteHost");
-        String remoteUser = value(params, "remoteUser");
-        String privateKeyBase64 = value(params, "remotePrivateKeyBase64");
-        String privateKey = value(params, "remotePrivateKey");
-        String passphrase = value(params, "remotePassphrase");
-        int port = parseIntOrDefault(value(params, "remotePort"), 22);
-
-        if (remoteHost != null && remoteUser != null && privateKeyBase64 != null) {
-            return sshCommandExecutor.executeWithKeyBase64(remoteHost, port, remoteUser, privateKeyBase64, passphrase, command, timeoutSeconds);
+        RuntimeExecutionContext context = new RuntimeExecutionContext(params, command, timeoutSeconds);
+        RuntimeAdapter adapter = resolveAdapter(context);
+        RuntimeExecutionContext prepared = adapter.prepare(context);
+        CommandExecutionResult result = adapter.execute(prepared);
+        if (!adapter.verify(result, prepared)) {
+            return new CommandExecutionResult(
+                    false,
+                    result.exitCode(),
+                    result.stdout(),
+                    result.stderr(),
+                    result.durationMs(),
+                    "Runtime adapter verify failed: " + adapter.adapterId()
+            );
         }
-        if (remoteHost != null && remoteUser != null && privateKey != null) {
-            return sshCommandExecutor.executeWithKey(remoteHost, port, remoteUser, privateKey, passphrase, command, timeoutSeconds);
-        }
-        String remotePassword = value(params, "remotePassword");
-        if (remoteHost != null && remoteUser != null && remotePassword != null) {
-            return sshCommandExecutor.execute(remoteHost, port, remoteUser, remotePassword, command, timeoutSeconds);
-        }
-        return localCommandExecutor.execute(buildLocalShell(command), timeoutSeconds);
+        return result;
     }
 
-    private List<String> buildLocalShell(String cmd) {
-        String os = System.getProperty("os.name", "").toLowerCase();
-        if (os.contains("win")) {
-            return List.of("powershell", "-Command", cmd);
-        }
-        return List.of("sh", "-lc", cmd);
+    public void rollback(Map<String, Object> params, String command, int timeoutSeconds) {
+        RuntimeExecutionContext context = new RuntimeExecutionContext(params, command, timeoutSeconds);
+        RuntimeAdapter adapter = resolveAdapter(context);
+        adapter.rollback(context);
     }
 
-    private String value(Map<String, Object> params, String key) {
-        Object val = params.get(key);
-        if (val instanceof String s && !s.isBlank()) {
-            return s;
-        }
-        return null;
+    public List<Map<String, Object>> registeredAdapters() {
+        return runtimeAdapters.stream().map(adapter -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("adapterId", adapter.adapterId());
+            item.put("priority", adapter.priority());
+            item.put("className", adapter.getClass().getName());
+            return item;
+        }).toList();
     }
 
-    private int parseIntOrDefault(String val, int defaultValue) {
-        if (val == null) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(val);
-        } catch (NumberFormatException ignored) {
-            return defaultValue;
-        }
+    private RuntimeAdapter resolveAdapter(RuntimeExecutionContext context) {
+        return runtimeAdapters.stream()
+                .filter(adapter -> adapter.supports(context))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No runtime adapter available"));
     }
 }
-

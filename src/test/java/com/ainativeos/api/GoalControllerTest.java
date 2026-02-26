@@ -8,6 +8,7 @@ import com.ainativeos.health.HealthCheckService;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
+import com.ainativeos.runtime.RuntimeCommandDispatcher;
 import com.ainativeos.service.SemanticKernelService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,9 @@ class GoalControllerTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private RuntimeCommandDispatcher runtimeCommandDispatcher;
 
     @InjectMocks
     private GoalController goalController;

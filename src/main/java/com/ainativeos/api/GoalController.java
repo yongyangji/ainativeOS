@@ -12,6 +12,7 @@ import com.ainativeos.persistence.entity.GoalTraceEntity;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
+import com.ainativeos.runtime.RuntimeCommandDispatcher;
 import com.ainativeos.service.SemanticKernelService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,6 +49,7 @@ public class GoalController {
     private final DesiredStateJobRepository desiredStateJobRepository;
     private final HealthCheckService healthCheckService;
     private final ObjectMapper objectMapper;
+    private final RuntimeCommandDispatcher runtimeCommandDispatcher;
 
     public GoalController(
             SemanticKernelService semanticKernelService,
@@ -55,7 +57,8 @@ public class GoalController {
             GoalTraceRepository goalTraceRepository,
             DesiredStateJobRepository desiredStateJobRepository,
             HealthCheckService healthCheckService,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            RuntimeCommandDispatcher runtimeCommandDispatcher
     ) {
         this.semanticKernelService = semanticKernelService;
         this.goalExecutionRepository = goalExecutionRepository;
@@ -63,6 +66,7 @@ public class GoalController {
         this.desiredStateJobRepository = desiredStateJobRepository;
         this.healthCheckService = healthCheckService;
         this.objectMapper = objectMapper;
+        this.runtimeCommandDispatcher = runtimeCommandDispatcher;
     }
 
     @PostMapping("/plan")
@@ -200,5 +204,10 @@ public class GoalController {
      */
     public Map<String, Object> health() {
         return healthCheckService.check();
+    }
+
+    @GetMapping("/runtime-adapters")
+    public List<Map<String, Object>> runtimeAdapters() {
+        return runtimeCommandDispatcher.registeredAdapters();
     }
 }

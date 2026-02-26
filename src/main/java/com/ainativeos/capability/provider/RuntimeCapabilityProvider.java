@@ -166,7 +166,10 @@ public class RuntimeCapabilityProvider implements CapabilityProvider {
 
     @Override
     public void rollback(AtomicOp atomicOp) {
-        // no-op in current MVP; runtime rollback hook is reserved
+        Object commandRaw = atomicOp.parameters().get("command");
+        if (commandRaw instanceof String cmd && !cmd.isBlank()) {
+            runtimeCommandDispatcher.rollback(atomicOp.parameters(), cmd, atomicOp.timeoutSeconds());
+        }
     }
 
     private CommandExecutionResult executeCommand(AtomicOp atomicOp, String command) {

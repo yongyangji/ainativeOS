@@ -41,6 +41,8 @@ AI-Native 统一操作模型，核心能力包括：
 - 策略中心升级：支持 `policyProfile` 的重试/超时/回滚策略、执行级熔断、任务级限流。
 - LLM 路由升级：支持 primary/fallback provider，记录调用耗时/状态码/fallback 命中。
 - `GoalPlan` 与 `GoalExecutionResult` 增加 `llmRationale` 字段。
+- Runtime 执行层完成 SPI 化：`prepare/execute/verify/rollback` 四阶段，Local/SSH 已迁移为适配器实现。
+- 支持 Runtime Adapter 自动注册发现，可通过接口查看当前注册适配器清单。
 
 ## API 列表
 - `POST /api/goals/plan`
@@ -49,6 +51,7 @@ AI-Native 统一操作模型，核心能力包括：
 - `GET /api/goals/{goalId}/trace`
 - `GET /api/goals/{goalId}/replay`
 - `GET /api/goals/reconcile-jobs?goalId=...`
+- `GET /api/goals/runtime-adapters`
 - `GET /api/goals/health`
 
 ## 接口示例
@@ -301,6 +304,26 @@ curl -s "http://127.0.0.1:8080/api/goals/goal-ui-001/replay"
 ```
 
 ## 运行模式说明
+
+### Runtime Adapter SPI（EPIC-4）
+- SPI 接口：`RuntimeAdapter`（`prepare/execute/verify/rollback`）
+- 执行分发：`RuntimeCommandDispatcher` 基于 `List<RuntimeAdapter>` 自动发现并按优先级路由
+- 已迁移适配器：
+  - `ssh`（优先级高，满足 remote 参数时命中）
+  - `local-shell`（兜底）
+
+可用适配器查询：
+```bash
+curl -s "http://127.0.0.1:8080/api/goals/runtime-adapters"
+```
+
+响应示例：
+```json
+[
+  {"adapterId":"ssh","priority":10,"className":"com.ainativeos.runtime.spi.SshRuntimeAdapter"},
+  {"adapterId":"local-shell","priority":200,"className":"com.ainativeos.runtime.spi.LocalRuntimeAdapter"}
+]
+```
 
 ### 本地命令模式
 - 当传入 `constraints.runtimeCommand` 时，运行时会在本地 shell 执行命令。
