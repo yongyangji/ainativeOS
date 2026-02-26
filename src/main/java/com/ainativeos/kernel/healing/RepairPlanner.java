@@ -1,9 +1,10 @@
-package com.ainativeos.kernel.healing;
+﻿package com.ainativeos.kernel.healing;
 
 import com.ainativeos.domain.AtomicOp;
 import com.ainativeos.domain.FailureObject;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -12,16 +13,22 @@ import java.util.Map;
  * 修复规划器。
  * <p>
  * 根据 FailureObject 生成可重试的补丁版 AtomicOp。
- * 当前实现采用轻量内存修复策略，可按需扩展更复杂的规则引擎。
  */
 public class RepairPlanner {
 
     public AtomicOp patchForRetry(AtomicOp failedOp, FailureObject failureObject) {
-        // 基于原参数复制，进行最小化补丁，避免破坏其他上下文
         Map<String, Object> patched = new HashMap<>(failedOp.parameters());
         patched.remove("simulateFailure");
         patched.put("patchedBy", "self-healing-vfs");
         patched.put("retryToken", failureObject.retryToken());
+        patched.put("patchedAt", Instant.now().toString());
+        patched.put("failureId", failureObject.failureId());
+
+        int timeout = failedOp.timeoutSeconds();
+        if (hasTimeoutSignal(failureObject) && timeout < 300) {
+            timeout = Math.min(300, timeout + 30);
+        }
+
         return new AtomicOp(
                 failedOp.opId(),
                 failedOp.type(),
@@ -29,7 +36,13 @@ public class RepairPlanner {
                 patched,
                 failedOp.idempotent(),
                 failedOp.rollbackSupported(),
-                failedOp.timeoutSeconds()
+                timeout
         );
+    }
+
+    private boolean hasTimeoutSignal(FailureObject failureObject) {
+        return failureObject.errorVectors() != null
+                && failureObject.errorVectors().stream()
+                .anyMatch(v -> v.code() != null && v.code().toUpperCase().contains("TIMEOUT"));
     }
 }
