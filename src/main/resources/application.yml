@@ -59,3 +59,9 @@ ainativeos:
     enabled: ${PLUGINS_ENABLED:true}
     manifest-dir: ${PLUGINS_MANIFEST_DIR:plugins}
     high-risk-approval-token: ${PLUGINS_HIGH_RISK_APPROVAL_TOKEN:ALLOW_HIGH_RISK}
+  templates:
+    enabled: ${TEMPLATES_ENABLED:true}
+  events:
+    enabled: ${EVENTS_ENABLED:false}
+    webhook-urls: ${EVENT_WEBHOOK_URLS:}
+    timeout-seconds: ${EVENT_TIMEOUT_SECONDS:5}

@@ -37,6 +37,11 @@ public class AinativeOsCli {
             case "health" -> client.health();
             case "runtime-adapters" -> client.runtimeAdapters();
             case "capabilities" -> client.capabilities();
+            case "templates" -> client.templates();
+            case "template-versions" -> client.templateVersions(required(options, "template-id"));
+            case "template-execute" -> client.executeTemplate(readGenericJson(options));
+            case "template-rollback" -> client.rollbackTemplate(required(options, "template-id"), required(options, "version"));
+            case "events" -> client.events(required(options, "goal-id"));
             default -> {
                 printUsage();
                 yield Map.of("error", "unknown command");
@@ -50,6 +55,12 @@ public class AinativeOsCli {
         String file = required(options, "file");
         String json = Files.readString(Path.of(file));
         return MAPPER.readValue(json, GoalSpecRequest.class);
+    }
+
+    private static Map<String, Object> readGenericJson(Map<String, String> options) throws Exception {
+        String file = required(options, "file");
+        String json = Files.readString(Path.of(file));
+        return MAPPER.readValue(json, Map.class);
     }
 
     private static String required(Map<String, String> options, String key) {
@@ -102,6 +113,11 @@ public class AinativeOsCli {
                   health [--base-url ...]
                   runtime-adapters [--base-url ...]
                   capabilities [--base-url ...]
+                  templates [--base-url ...]
+                  template-versions --template-id <templateId> [--base-url ...]
+                  template-execute --file <template-exec.json> [--base-url ...]
+                  template-rollback --template-id <templateId> --version <ver> [--base-url ...]
+                  events --goal-id <goalId> [--base-url ...]
                 """);
     }
 }

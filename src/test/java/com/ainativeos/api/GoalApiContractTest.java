@@ -7,7 +7,9 @@ import com.ainativeos.domain.GoalExecutionResult;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
 import com.ainativeos.health.HealthCheckService;
+import com.ainativeos.persistence.entity.EventDeliveryEntity;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
+import com.ainativeos.persistence.repository.EventDeliveryRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
 import com.ainativeos.plugin.PluginManifest;
@@ -15,6 +17,7 @@ import com.ainativeos.plugin.PluginRegistryService;
 import com.ainativeos.runtime.RuntimeCommandDispatcher;
 import com.ainativeos.capability.CapabilityRouter;
 import com.ainativeos.service.SemanticKernelService;
+import com.ainativeos.template.TemplateService;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +57,10 @@ class GoalApiContractTest {
     private CapabilityRouter capabilityRouter;
     @MockBean
     private PluginRegistryService pluginRegistryService;
+    @MockBean
+    private TemplateService templateService;
+    @MockBean
+    private EventDeliveryRepository eventDeliveryRepository;
 
     @Test
     void planResponse_shouldContainContractFields() throws Exception {
@@ -168,5 +175,40 @@ class GoalApiContractTest {
                 .andExpect(jsonPath("$[0].pluginId").value("echo-plugin"))
                 .andExpect(jsonPath("$[0].enabled").value(true))
                 .andExpect(jsonPath("$[0].requiredCapabilities[0]").value("COMPUTE_PARSE_INTENT"));
+    }
+
+    @Test
+    void templates_shouldReturnShape() throws Exception {
+        Mockito.when(templateService.listActiveTemplates()).thenReturn(List.of(
+                Map.of(
+                        "templateId", "tpl-deploy-service",
+                        "name", "Service Deployment",
+                        "version", "1.0.0",
+                        "active", true
+                )
+        ));
+
+        mockMvc.perform(get("/api/goals/templates"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].templateId").value("tpl-deploy-service"))
+                .andExpect(jsonPath("$[0].active").value(true));
+    }
+
+    @Test
+    void events_shouldReturnShape() throws Exception {
+        EventDeliveryEntity entity = new EventDeliveryEntity();
+        entity.setGoalId("goal-1");
+        entity.setEventType("goal.execution.completed");
+        entity.setTargetUrl("http://localhost:9999/hook");
+        entity.setSuccess(true);
+        entity.setHttpStatus(200);
+        entity.setCreatedAt(Instant.now());
+        Mockito.when(eventDeliveryRepository.findTop100ByGoalIdOrderByCreatedAtDesc("goal-1"))
+                .thenReturn(List.of(entity));
+
+        mockMvc.perform(get("/api/goals/events").param("goalId", "goal-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].goalId").value("goal-1"))
+                .andExpect(jsonPath("$[0].eventType").value("goal.execution.completed"));
     }
 }

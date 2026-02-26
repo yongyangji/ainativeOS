@@ -114,7 +114,7 @@
 <body>
 <div class="wrap">
   <h1>AI-Native OS 测试控制台</h1>
-  <p class="sub">用于快速测试 health、plan、execute、executions、trace、reconcile-jobs 接口</p>
+  <p class="sub">用于快速测试 health、plan、execute、templates、events 等核心接口</p>
   <div class="grid">
     <div class="panel">
       <h2>接口操作</h2>
@@ -144,6 +144,9 @@
             <button class="secondary" onclick="callReplay()">GET replay</button>
             <button class="secondary" onclick="callCapabilities()">GET capabilities</button>
             <button class="secondary" onclick="callPlugins()">GET plugins</button>
+            <button class="secondary" onclick="callTemplates()">GET templates</button>
+            <button class="secondary" onclick="callTemplateExecute()">POST template execute</button>
+            <button class="secondary" onclick="callEvents()">GET events</button>
           </div>
         </div>
       </div>
@@ -320,6 +323,53 @@
       const r = await request("/api/goals/plugins");
       append("GET /api/goals/plugins", r);
       setStatus("plugins 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callTemplates() {
+    try {
+      setStatus("请求中...");
+      const r = await request("/api/goals/templates");
+      append("GET /api/goals/templates", r);
+      setStatus("templates 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callTemplateExecute() {
+    try {
+      const payload = {
+        templateId: "tpl-inspect-runtime",
+        params: {
+          runtimeCommand: "echo template-exec-ok"
+        }
+      };
+      setStatus("请求中...");
+      const r = await request("/api/goals/templates/execute", "POST", payload);
+      append("POST /api/goals/templates/execute", r);
+      if (r.payload && r.payload.goalId) {
+        goalIdEl.value = r.payload.goalId;
+      }
+      setStatus("template execute 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callEvents() {
+    const goalId = goalIdEl.value.trim();
+    if (!goalId) {
+      setStatus("请先输入 goalId", "warn");
+      return;
+    }
+    try {
+      setStatus("请求中...");
+      const r = await request("/api/goals/events?goalId=" + encodeURIComponent(goalId));
+      append("GET /api/goals/events?goalId=" + goalId, r);
+      setStatus("events 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
     } catch (e) {
       setStatus(e.message, "err");
     }

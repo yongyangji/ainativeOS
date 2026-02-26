@@ -77,6 +77,30 @@ public class AinativeOsClient {
         return get("/api/goals/capabilities", new TypeReference<List<Map<String, Object>>>() {});
     }
 
+    public List<Map<String, Object>> templates() {
+        return get("/api/goals/templates", new TypeReference<List<Map<String, Object>>>() {});
+    }
+
+    public List<Map<String, Object>> templateVersions(String templateId) {
+        return get("/api/goals/templates/" + encode(templateId) + "/versions", new TypeReference<List<Map<String, Object>>>() {});
+    }
+
+    public Map<String, Object> executeTemplate(Map<String, Object> payload) {
+        return post("/api/goals/templates/execute", payload, new TypeReference<Map<String, Object>>() {});
+    }
+
+    public Map<String, Object> rollbackTemplate(String templateId, String version) {
+        return post(
+                "/api/goals/templates/" + encode(templateId) + "/rollback",
+                Map.of("version", version),
+                new TypeReference<Map<String, Object>>() {}
+        );
+    }
+
+    public List<Map<String, Object>> events(String goalId) {
+        return get("/api/goals/events?goalId=" + encode(goalId), new TypeReference<List<Map<String, Object>>>() {});
+    }
+
     private <T> T post(String path, Object body, Class<T> responseType) {
         return sendWithRetry(() -> {
             String json = objectMapper.writeValueAsString(body);
@@ -97,6 +121,20 @@ public class AinativeOsClient {
                     .uri(URI.create(config.baseUrl() + path))
                     .timeout(Duration.ofSeconds(config.timeoutSeconds()))
                     .GET()
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            return parseResponse(response, ref);
+        });
+    }
+
+    private <T> T post(String path, Object body, TypeReference<T> ref) {
+        return sendWithRetry(() -> {
+            String json = objectMapper.writeValueAsString(body);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(config.baseUrl() + path))
+                    .timeout(Duration.ofSeconds(config.timeoutSeconds()))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             return parseResponse(response, ref);

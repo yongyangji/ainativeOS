@@ -7,15 +7,20 @@ import com.ainativeos.domain.GoalExecutionResult;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
 import com.ainativeos.health.HealthCheckService;
+import com.ainativeos.persistence.entity.EventDeliveryEntity;
 import com.ainativeos.persistence.entity.DesiredStateJobEntity;
 import com.ainativeos.persistence.entity.GoalExecutionEntity;
 import com.ainativeos.persistence.entity.GoalTraceEntity;
 import com.ainativeos.plugin.PluginRegistryService;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
+import com.ainativeos.persistence.repository.EventDeliveryRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
 import com.ainativeos.runtime.RuntimeCommandDispatcher;
 import com.ainativeos.service.SemanticKernelService;
+import com.ainativeos.template.TemplateExecutionRequest;
+import com.ainativeos.template.TemplateRollbackRequest;
+import com.ainativeos.template.TemplateService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
@@ -54,6 +59,8 @@ public class GoalController {
     private final RuntimeCommandDispatcher runtimeCommandDispatcher;
     private final CapabilityRouter capabilityRouter;
     private final PluginRegistryService pluginRegistryService;
+    private final TemplateService templateService;
+    private final EventDeliveryRepository eventDeliveryRepository;
 
     public GoalController(
             SemanticKernelService semanticKernelService,
@@ -64,7 +71,9 @@ public class GoalController {
             ObjectMapper objectMapper,
             RuntimeCommandDispatcher runtimeCommandDispatcher,
             CapabilityRouter capabilityRouter,
-            PluginRegistryService pluginRegistryService
+            PluginRegistryService pluginRegistryService,
+            TemplateService templateService,
+            EventDeliveryRepository eventDeliveryRepository
     ) {
         this.semanticKernelService = semanticKernelService;
         this.goalExecutionRepository = goalExecutionRepository;
@@ -75,6 +84,8 @@ public class GoalController {
         this.runtimeCommandDispatcher = runtimeCommandDispatcher;
         this.capabilityRouter = capabilityRouter;
         this.pluginRegistryService = pluginRegistryService;
+        this.templateService = templateService;
+        this.eventDeliveryRepository = eventDeliveryRepository;
     }
 
     @PostMapping("/plan")
@@ -235,5 +246,48 @@ public class GoalController {
                 "requiredCapabilities", plugin.requiredCapabilities() == null ? List.of() : plugin.requiredCapabilities(),
                 "description", plugin.description() == null ? "" : plugin.description()
         )).toList();
+    }
+
+    @GetMapping("/templates")
+    public List<Map<String, Object>> templates() {
+        return templateService.listActiveTemplates();
+    }
+
+    @GetMapping("/templates/{templateId}/versions")
+    public List<Map<String, Object>> templateVersions(@PathVariable String templateId) {
+        return templateService.listVersions(templateId);
+    }
+
+    @PostMapping("/templates/execute")
+    public GoalExecutionResult executeTemplate(@Valid @RequestBody TemplateExecutionRequest request) {
+        return templateService.execute(request);
+    }
+
+    @PostMapping("/templates/{templateId}/rollback")
+    public Map<String, Object> rollbackTemplate(
+            @PathVariable String templateId,
+            @Valid @RequestBody TemplateRollbackRequest request
+    ) {
+        return templateService.rollback(templateId, request.version());
+    }
+
+    @GetMapping("/events")
+    public List<Map<String, Object>> eventDeliveries(@RequestParam String goalId) {
+        return eventDeliveryRepository.findTop100ByGoalIdOrderByCreatedAtDesc(goalId).stream()
+                .map(this::toEventResponse)
+                .toList();
+    }
+
+    private Map<String, Object> toEventResponse(EventDeliveryEntity it) {
+        Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("id", it.getId());
+        payload.put("goalId", it.getGoalId());
+        payload.put("eventType", it.getEventType());
+        payload.put("targetUrl", it.getTargetUrl());
+        payload.put("success", it.isSuccess());
+        payload.put("httpStatus", it.getHttpStatus());
+        payload.put("errorMessage", it.getErrorMessage() == null ? "" : it.getErrorMessage());
+        payload.put("createdAt", it.getCreatedAt());
+        return payload;
     }
 }

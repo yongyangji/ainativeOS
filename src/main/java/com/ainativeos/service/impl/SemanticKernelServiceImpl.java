@@ -4,6 +4,7 @@ import com.ainativeos.domain.ExecutionTraceEntry;
 import com.ainativeos.domain.GoalExecutionResult;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
+import com.ainativeos.event.ExecutionEventPublisher;
 import com.ainativeos.kernel.execution.SemanticExecutionEngine;
 import com.ainativeos.kernel.planner.GoalPlanner;
 import com.ainativeos.persistence.entity.GoalExecutionEntity;
@@ -35,6 +36,7 @@ public class SemanticKernelServiceImpl implements SemanticKernelService {
     private final GoalExecutionRepository goalExecutionRepository;
     private final GoalTraceRepository goalTraceRepository;
     private final DesiredStateJobService desiredStateJobService;
+    private final ExecutionEventPublisher executionEventPublisher;
     private final ObjectMapper objectMapper;
 
     public SemanticKernelServiceImpl(
@@ -43,6 +45,7 @@ public class SemanticKernelServiceImpl implements SemanticKernelService {
             GoalExecutionRepository goalExecutionRepository,
             GoalTraceRepository goalTraceRepository,
             DesiredStateJobService desiredStateJobService,
+            ExecutionEventPublisher executionEventPublisher,
             ObjectMapper objectMapper
     ) {
         this.goalPlanner = goalPlanner;
@@ -50,6 +53,7 @@ public class SemanticKernelServiceImpl implements SemanticKernelService {
         this.goalExecutionRepository = goalExecutionRepository;
         this.goalTraceRepository = goalTraceRepository;
         this.desiredStateJobService = desiredStateJobService;
+        this.executionEventPublisher = executionEventPublisher;
         this.objectMapper = objectMapper;
     }
 
@@ -94,6 +98,7 @@ public class SemanticKernelServiceImpl implements SemanticKernelService {
         if ("SUCCEEDED".equals(result.status().name())) {
             desiredStateJobService.createContinuousJobIfNeeded(plan);
         }
+        executionEventPublisher.publishExecutionCompleted(plan, result);
 
         return result;
     }

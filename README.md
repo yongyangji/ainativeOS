@@ -54,6 +54,11 @@ AI-Native 统一操作模型，核心能力包括：
 - `GET /api/goals/runtime-adapters`
 - `GET /api/goals/capabilities`
 - `GET /api/goals/plugins`
+- `GET /api/goals/templates`
+- `GET /api/goals/templates/{templateId}/versions`
+- `POST /api/goals/templates/execute`
+- `POST /api/goals/templates/{templateId}/rollback`
+- `GET /api/goals/events?goalId=...`
 - `GET /api/goals/health`
 
 ## 接口示例
@@ -415,6 +420,11 @@ GoalExecutionResponse result = client.execute(request);
 List<TraceEventItem> trace = client.trace(request.goalId());
 ```
 
+Python SDK（`python-sdk`）：
+- 包名：`ainativeos-sdk`
+- 安装：`pip install -e python-sdk`
+- 示例：`python python-sdk/examples/basic_demo.py`
+
 ### 测试与 CI/CD（EPIC-8）
 - 契约测试：`GoalApiContractTest`（校验 `/plan`、`/execute`、`/capabilities` 响应字段契约）
 - E2E 冒烟：`GoalExecutionE2ETest`（mock LLM + real runtime provider）
@@ -430,6 +440,13 @@ List<TraceEventItem> trace = client.trace(request.goalId());
 - 权限沙箱：`PluginSandboxService`
   - 高风险能力（`SYSTEM_/K8S_/CLOUD_/DOCKER_/RUNTIME_`）需要显式审批令牌
   - 令牌配置：`PLUGINS_HIGH_RISK_APPROVAL_TOKEN`
+
+### 模板中心与事件总线（EPIC-10）
+- 内置模板：部署、巡检、自愈（首次启动自动写入 `template_version`）
+- 模板版本管理：支持查询版本和回滚到指定版本
+- 一键执行模板：`POST /api/goals/templates/execute`
+- Webhook 事件推送：目标执行完成后推送 `goal.execution.completed`
+- 事件投递审计：落库 `event_delivery`，可通过 `GET /api/goals/events?goalId=...` 查询
 
 ### 本地命令模式
 - 当传入 `constraints.runtimeCommand` 时，运行时会在本地 shell 执行命令。
@@ -558,6 +575,13 @@ ainativeos:
 ```bash
 sudo docker compose -f infra/docker-compose.yml up -d --build --force-recreate control-plane
 sudo docker compose -f infra/docker-compose.yml exec control-plane sh -lc 'echo $LLM_ENABLED; echo $LLM_PROVIDER; [ -n "$LLM_API_KEY" ] && echo API_KEY_SET=true || echo API_KEY_SET=false'
+```
+
+Webhook 事件推送配置示例：
+```dotenv
+EVENTS_ENABLED=true
+EVENT_WEBHOOK_URLS=http://127.0.0.1:9000/hook,http://127.0.0.1:9001/hook
+EVENT_TIMEOUT_SECONDS=5
 ```
 
 ## 字段字典

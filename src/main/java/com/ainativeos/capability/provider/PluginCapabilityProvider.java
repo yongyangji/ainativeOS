@@ -118,9 +118,9 @@ public class PluginCapabilityProvider implements CapabilityProvider {
                 atomicOp.type(),
                 providerName(),
                 manifest.pluginId(),
-                Map.<String, Object>of(
+                Map.of(
                         "version", nullSafe(manifest.version()),
-                        "isolatedProcess", manifest.isolatedProcess()
+                        "isolatedProcess", String.valueOf(manifest.isolatedProcess())
                 ),
                 Instant.now()
         );

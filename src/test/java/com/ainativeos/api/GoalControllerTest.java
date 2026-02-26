@@ -5,6 +5,7 @@ import com.ainativeos.domain.GoalExecutionResult;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
 import com.ainativeos.health.HealthCheckService;
+import com.ainativeos.persistence.repository.EventDeliveryRepository;
 import com.ainativeos.plugin.PluginRegistryService;
 import com.ainativeos.capability.CapabilityRouter;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
@@ -12,6 +13,7 @@ import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
 import com.ainativeos.runtime.RuntimeCommandDispatcher;
 import com.ainativeos.service.SemanticKernelService;
+import com.ainativeos.template.TemplateService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,6 +61,12 @@ class GoalControllerTest {
 
     @Mock
     private PluginRegistryService pluginRegistryService;
+
+    @Mock
+    private TemplateService templateService;
+
+    @Mock
+    private EventDeliveryRepository eventDeliveryRepository;
 
     @InjectMocks
     private GoalController goalController;
