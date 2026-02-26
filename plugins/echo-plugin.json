@@ -1,0 +1,27 @@
+{
+  "pluginId": "echo-plugin",
+  "name": "Echo Plugin",
+  "version": "1.0.0",
+  "description": "Example plugin manifest for EPIC-9 validation",
+  "entryCommand": "echo plugin-executed:$PLUGIN_INPUT",
+  "enabled": true,
+  "isolatedProcess": true,
+  "requiredCapabilities": [
+    "COMPUTE_PARSE_INTENT"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object"
+  },
+  "metadata": {
+    "owner": "ainativeos",
+    "kind": "demo"
+  }
+}

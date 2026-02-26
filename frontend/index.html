@@ -143,6 +143,7 @@
             <button class="secondary" onclick="callTrace()">GET trace</button>
             <button class="secondary" onclick="callReplay()">GET replay</button>
             <button class="secondary" onclick="callCapabilities()">GET capabilities</button>
+            <button class="secondary" onclick="callPlugins()">GET plugins</button>
           </div>
         </div>
       </div>
@@ -308,6 +309,17 @@
       const r = await request("/api/goals/capabilities");
       append("GET /api/goals/capabilities", r);
       setStatus("capabilities 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
+    } catch (e) {
+      setStatus(e.message, "err");
+    }
+  }
+
+  async function callPlugins() {
+    try {
+      setStatus("请求中...");
+      const r = await request("/api/goals/plugins");
+      append("GET /api/goals/plugins", r);
+      setStatus("plugins 完成，HTTP " + r.status, r.status === 200 ? "ok" : "warn");
     } catch (e) {
       setStatus(e.message, "err");
     }

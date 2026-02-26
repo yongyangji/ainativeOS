@@ -73,6 +73,26 @@ public class HeuristicPlanGraphBuilder implements PlanGraphBuilder {
             ), List.of(), null, true));
         }
 
+        if (goalSpec.constraints() != null && goalSpec.constraints().containsKey("pluginId")) {
+            Map<String, Object> pluginParams = new java.util.HashMap<>();
+            pluginParams.put("pluginId", goalSpec.constraints().get("pluginId"));
+            if (goalSpec.constraints().containsKey("pluginApprovalToken")) {
+                pluginParams.put("pluginApprovalToken", goalSpec.constraints().get("pluginApprovalToken"));
+            }
+            if (goalSpec.constraints().containsKey("pluginInputJson")) {
+                pluginParams.put("pluginInputJson", goalSpec.constraints().get("pluginInputJson"));
+            }
+            nodes.add(new PlanNode(
+                    "node-plugin-exec",
+                    "PLUGIN_EXECUTE",
+                    "Execute plugin skill via plugin provider",
+                    pluginParams,
+                    List.of("node-policy", "node-capability"),
+                    null,
+                    false
+            ));
+        }
+
         return new PlanGraph(nodes);
     }
 }

@@ -8,6 +8,7 @@ import com.ainativeos.kernel.policy.ExecutionCircuitBreakerService;
 import com.ainativeos.kernel.policy.TaskRateLimiterService;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.kernel.planner.GoalPlanner;
+import com.ainativeos.plugin.PluginRegistryService;
 import com.ainativeos.runtime.RuntimeCommandDispatcher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ public class HealthCheckService {
     private final ExecutionCircuitBreakerService circuitBreakerService;
     private final TaskRateLimiterService taskRateLimiterService;
     private final RuntimeCommandDispatcher runtimeCommandDispatcher;
+    private final PluginRegistryService pluginRegistryService;
 
     public HealthCheckService(
             JdbcTemplate jdbcTemplate,
@@ -50,7 +52,8 @@ public class HealthCheckService {
             DesiredStateJobRepository desiredStateJobRepository,
             ExecutionCircuitBreakerService circuitBreakerService,
             TaskRateLimiterService taskRateLimiterService,
-            RuntimeCommandDispatcher runtimeCommandDispatcher
+            RuntimeCommandDispatcher runtimeCommandDispatcher,
+            PluginRegistryService pluginRegistryService
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.goalPlanner = goalPlanner;
@@ -62,6 +65,7 @@ public class HealthCheckService {
         this.circuitBreakerService = circuitBreakerService;
         this.taskRateLimiterService = taskRateLimiterService;
         this.runtimeCommandDispatcher = runtimeCommandDispatcher;
+        this.pluginRegistryService = pluginRegistryService;
     }
 
     public Map<String, Object> check() {
@@ -77,6 +81,7 @@ public class HealthCheckService {
         String reconcileControllerStatus = checkReconcileController();
         String policyCenterStatus = checkPolicyCenter();
         String runtimeAdapterStatus = checkRuntimeAdapters();
+        String pluginSystemStatus = checkPluginSystem();
 
         response.put("database", dbStatus);
         response.put("semanticKernel", semanticKernelStatus);
@@ -85,6 +90,7 @@ public class HealthCheckService {
         response.put("reconcileController", reconcileControllerStatus);
         response.put("policyCenter", policyCenterStatus);
         response.put("runtimeAdapters", runtimeAdapterStatus);
+        response.put("pluginSystem", pluginSystemStatus);
 
         // 总体状态：全部 ready 为 UP，否则标记为 DEGRADED
         boolean healthy = "ready".equals(dbStatus)
@@ -93,7 +99,8 @@ public class HealthCheckService {
                 && "ready".equals(selfHealingStatus)
                 && "ready".equals(reconcileControllerStatus)
                 && "ready".equals(policyCenterStatus)
-                && "ready".equals(runtimeAdapterStatus);
+                && "ready".equals(runtimeAdapterStatus)
+                && "ready".equals(pluginSystemStatus);
         response.put("status", healthy ? "UP" : "DEGRADED");
         return response;
     }
@@ -137,5 +144,9 @@ public class HealthCheckService {
         return runtimeCommandDispatcher != null && !runtimeCommandDispatcher.registeredAdapters().isEmpty()
                 ? "ready"
                 : "degraded";
+    }
+
+    private String checkPluginSystem() {
+        return pluginRegistryService != null ? "ready" : "degraded";
     }
 }

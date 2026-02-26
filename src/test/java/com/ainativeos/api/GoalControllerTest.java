@@ -5,6 +5,7 @@ import com.ainativeos.domain.GoalExecutionResult;
 import com.ainativeos.domain.GoalPlan;
 import com.ainativeos.domain.GoalSpec;
 import com.ainativeos.health.HealthCheckService;
+import com.ainativeos.plugin.PluginRegistryService;
 import com.ainativeos.capability.CapabilityRouter;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
@@ -55,6 +56,9 @@ class GoalControllerTest {
 
     @Mock
     private CapabilityRouter capabilityRouter;
+
+    @Mock
+    private PluginRegistryService pluginRegistryService;
 
     @InjectMocks
     private GoalController goalController;

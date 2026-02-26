@@ -10,6 +10,8 @@ import com.ainativeos.health.HealthCheckService;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
+import com.ainativeos.plugin.PluginManifest;
+import com.ainativeos.plugin.PluginRegistryService;
 import com.ainativeos.runtime.RuntimeCommandDispatcher;
 import com.ainativeos.capability.CapabilityRouter;
 import com.ainativeos.service.SemanticKernelService;
@@ -50,6 +52,8 @@ class GoalApiContractTest {
     private RuntimeCommandDispatcher runtimeCommandDispatcher;
     @MockBean
     private CapabilityRouter capabilityRouter;
+    @MockBean
+    private PluginRegistryService pluginRegistryService;
 
     @Test
     void planResponse_shouldContainContractFields() throws Exception {
@@ -139,5 +143,30 @@ class GoalApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].provider").value("runtime-provider"))
                 .andExpect(jsonPath("$[0].supportedOps[0]").value("RUNTIME_APPLY_DECLARATIVE_STATE"));
+    }
+
+    @Test
+    void plugins_shouldReturnManifestShape() throws Exception {
+        Mockito.when(pluginRegistryService.list()).thenReturn(List.of(
+                new PluginManifest(
+                        "echo-plugin",
+                        "Echo Plugin",
+                        "1.0.0",
+                        "desc",
+                        "echo ok",
+                        true,
+                        true,
+                        List.of("COMPUTE_PARSE_INTENT"),
+                        Map.of(),
+                        Map.of(),
+                        Map.of()
+                )
+        ));
+
+        mockMvc.perform(get("/api/goals/plugins"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].pluginId").value("echo-plugin"))
+                .andExpect(jsonPath("$[0].enabled").value(true))
+                .andExpect(jsonPath("$[0].requiredCapabilities[0]").value("COMPUTE_PARSE_INTENT"));
     }
 }

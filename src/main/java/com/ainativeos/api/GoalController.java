@@ -10,6 +10,7 @@ import com.ainativeos.health.HealthCheckService;
 import com.ainativeos.persistence.entity.DesiredStateJobEntity;
 import com.ainativeos.persistence.entity.GoalExecutionEntity;
 import com.ainativeos.persistence.entity.GoalTraceEntity;
+import com.ainativeos.plugin.PluginRegistryService;
 import com.ainativeos.persistence.repository.DesiredStateJobRepository;
 import com.ainativeos.persistence.repository.GoalExecutionRepository;
 import com.ainativeos.persistence.repository.GoalTraceRepository;
@@ -52,6 +53,7 @@ public class GoalController {
     private final ObjectMapper objectMapper;
     private final RuntimeCommandDispatcher runtimeCommandDispatcher;
     private final CapabilityRouter capabilityRouter;
+    private final PluginRegistryService pluginRegistryService;
 
     public GoalController(
             SemanticKernelService semanticKernelService,
@@ -61,7 +63,8 @@ public class GoalController {
             HealthCheckService healthCheckService,
             ObjectMapper objectMapper,
             RuntimeCommandDispatcher runtimeCommandDispatcher,
-            CapabilityRouter capabilityRouter
+            CapabilityRouter capabilityRouter,
+            PluginRegistryService pluginRegistryService
     ) {
         this.semanticKernelService = semanticKernelService;
         this.goalExecutionRepository = goalExecutionRepository;
@@ -71,6 +74,7 @@ public class GoalController {
         this.objectMapper = objectMapper;
         this.runtimeCommandDispatcher = runtimeCommandDispatcher;
         this.capabilityRouter = capabilityRouter;
+        this.pluginRegistryService = pluginRegistryService;
     }
 
     @PostMapping("/plan")
@@ -218,5 +222,18 @@ public class GoalController {
     @GetMapping("/capabilities")
     public List<Map<String, Object>> capabilities() {
         return capabilityRouter.capabilityDictionary();
+    }
+
+    @GetMapping("/plugins")
+    public List<Map<String, Object>> plugins() {
+        return pluginRegistryService.list().stream().map(plugin -> Map.<String, Object>of(
+                "pluginId", plugin.pluginId(),
+                "name", plugin.name() == null ? "" : plugin.name(),
+                "version", plugin.version() == null ? "" : plugin.version(),
+                "enabled", plugin.enabled(),
+                "isolatedProcess", plugin.isolatedProcess(),
+                "requiredCapabilities", plugin.requiredCapabilities() == null ? List.of() : plugin.requiredCapabilities(),
+                "description", plugin.description() == null ? "" : plugin.description()
+        )).toList();
     }
 }

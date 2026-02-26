@@ -53,6 +53,7 @@ AI-Native 统一操作模型，核心能力包括：
 - `GET /api/goals/reconcile-jobs?goalId=...`
 - `GET /api/goals/runtime-adapters`
 - `GET /api/goals/capabilities`
+- `GET /api/goals/plugins`
 - `GET /api/goals/health`
 
 ## 接口示例
@@ -309,6 +310,26 @@ curl -s "http://127.0.0.1:8080/api/goals/capabilities"
 ]
 ```
 
+### 11）查询插件清单
+请求：
+```bash
+curl -s "http://127.0.0.1:8080/api/goals/plugins"
+```
+
+响应（节选）：
+```json
+[
+  {
+    "pluginId":"echo-plugin",
+    "name":"Echo Plugin",
+    "version":"1.0.0",
+    "enabled":true,
+    "isolatedProcess":true,
+    "requiredCapabilities":["COMPUTE_PARSE_INTENT"]
+  }
+]
+```
+
 响应示例：
 ```json
 [
@@ -401,6 +422,14 @@ List<TraceEventItem> trace = client.trace(request.goalId());
   - Java 21 + Maven Test + Package + Docker Build
 - Release 流水线：`.github/workflows/release.yml`
   - Tag 触发（`v*`），自动打包 jar、构建镜像、发布 GitHub Release
+
+### 插件系统（EPIC-9）
+- manifest 规范：`plugins/*.json`（`pluginId/version/entryCommand/requiredCapabilities/inputSchema/outputSchema`）
+- 注册加载：`PluginRegistryService`
+- 执行隔离：`PluginCapabilityProvider` 通过独立进程执行插件命令
+- 权限沙箱：`PluginSandboxService`
+  - 高风险能力（`SYSTEM_/K8S_/CLOUD_/DOCKER_/RUNTIME_`）需要显式审批令牌
+  - 令牌配置：`PLUGINS_HIGH_RISK_APPROVAL_TOKEN`
 
 ### 本地命令模式
 - 当传入 `constraints.runtimeCommand` 时，运行时会在本地 shell 执行命令。
