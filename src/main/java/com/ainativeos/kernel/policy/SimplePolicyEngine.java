@@ -19,15 +19,18 @@ public class SimplePolicyEngine implements PolicyEngine {
     private final ExecutionPolicyProperties executionPolicyProperties;
     private final ExecutionCircuitBreakerService circuitBreakerService;
     private final TaskRateLimiterService taskRateLimiterService;
+    private final ExecutionConstraintValidator executionConstraintValidator;
 
     public SimplePolicyEngine(
             ExecutionPolicyProperties executionPolicyProperties,
             ExecutionCircuitBreakerService circuitBreakerService,
-            TaskRateLimiterService taskRateLimiterService
+            TaskRateLimiterService taskRateLimiterService,
+            ExecutionConstraintValidator executionConstraintValidator
     ) {
         this.executionPolicyProperties = executionPolicyProperties;
         this.circuitBreakerService = circuitBreakerService;
         this.taskRateLimiterService = taskRateLimiterService;
+        this.executionConstraintValidator = executionConstraintValidator;
     }
 
     @Override
@@ -62,6 +65,12 @@ public class SimplePolicyEngine implements PolicyEngine {
         boolean allowedByRate = taskRateLimiterService.tryAcquire(resolved.profile(), resolved.rateLimitPerMinute());
         if (!allowedByRate) {
             return PolicyDecision.blocked("Rate limit exceeded for current profile", "policy-rate-limit-001", details);
+        }
+
+        ExecutionConstraintValidator.ValidationResult validationResult = executionConstraintValidator.validate(plan.goalSpec());
+        details.putAll(validationResult.details());
+        if (!validationResult.valid()) {
+            return PolicyDecision.blocked(validationResult.reason(), "policy-env-constraint-001", details);
         }
 
         return PolicyDecision.allowed("Policy checks passed", "policy-default-001", details);

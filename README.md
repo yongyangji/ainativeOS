@@ -351,6 +351,18 @@ curl -s "http://127.0.0.1:8080/api/goals/runtime-adapters"
 - Kubernetes provider：支持 `K8S_APPLY_MANIFEST`、`K8S_VERIFY_DEPLOYMENT`、`K8S_ROLLBACK_DEPLOYMENT`
 - 可通过 `GET /api/goals/capabilities` 查询当前平台能力字典
 
+### 资源标签与环境约束（EPIC-6）
+- 支持 `computeClass`：`cpu`、`gpu`、`highmem`
+- 运行时会按标签路由到不同 Runtime Adapter（可通过 `/api/goals/runtime-adapters` 查看）
+- 执行前策略校验会验证环境约束，不满足会提前 `BLOCKED`
+
+常用约束键：
+- `computeClass=gpu|highmem|cpu`
+- `requiresDocker=true`
+- `requiresKubectl=true`
+- `requiredCommands=cmd1,cmd2`
+- `minMemoryGb=16`（配合 `computeClass=highmem`）
+
 ### 本地命令模式
 - 当传入 `constraints.runtimeCommand` 时，运行时会在本地 shell 执行命令。
 - Windows：`powershell -Command <runtimeCommand>`
