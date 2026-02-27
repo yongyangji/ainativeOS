@@ -1,4 +1,4 @@
-﻿package com.ainativeos.kernel.policy;
+package com.ainativeos.kernel.policy;
 
 import com.ainativeos.domain.GoalSpec;
 import com.ainativeos.runtime.CommandExecutionResult;

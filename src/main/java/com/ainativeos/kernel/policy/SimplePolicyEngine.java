@@ -1,4 +1,4 @@
-﻿package com.ainativeos.kernel.policy;
+package com.ainativeos.kernel.policy;
 
 import com.ainativeos.config.ExecutionPolicyProperties;
 import com.ainativeos.domain.AtomicOp;
