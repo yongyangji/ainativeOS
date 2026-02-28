@@ -686,6 +686,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 - `GET /api/goals/reconcile-jobs`
 - `GET /api/goals/capabilities`
 
+
 ## 常见问题排障
 
 ### 1）`llmUsed=false` 是否代表代码未生效？
