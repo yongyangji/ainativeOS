@@ -24,22 +24,15 @@ services:
       dockerfile: Dockerfile
     container_name: ainativeos-control-plane
     restart: unless-stopped
-    depends_on:
-      mysql:
-        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      DB_HOST: mysql
+      DB_HOST: 120.48.25.211
       DB_PORT: 3306
       DB_NAME: ainativeos
       DB_USER: ainativeos
       DB_PASSWORD: ainativeos_pwd
       APP_PORT: 8080
-      LLM_ENABLED: ${LLM_ENABLED:-false}
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
-      LLM_ENDPOINT: ${LLM_ENDPOINT:-https://api.openai.com/v1/chat/completions}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
-      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-20}
     ports:
       - "8080:8080"
 
